@@ -1,6 +1,8 @@
+
 from ._dbSecSS import _SS_DBUSER,_SS_DB_SECTION
 from ._offsetSS import Offset
 from ._unSupp import _SS_UNSUPP,_SS_STD_DB
+
 from ._compositeSS_Steel import _SS_COMP_STEEL_I_TYPE1,_SS_COMP_STEEL_TUB_TYPE1
 from ._TapdbSecSS import _SS_TAPERED_DBUSER
 from ._Tap_CompSteelSS import _SS_TAP_COMP_STEEL_TUB_TYPE1
@@ -114,43 +116,99 @@ def _JS2OBJ(id,js):
 
 
 class Section:
-    """ NEW Create Sections \n Use Section.DBUSER etc. to create sections"""
-    sect:list[_helperSECTION] = []
-    ids:list[int] = []
-    _dic = {}
+    """Manage cross-sections in a MIDAS GEN NX model.
 
+    ``Section`` is a static database that holds all sections defined in the
+    current Python session and provides factory methods for every supported
+    section type. Sections are pushed to / pulled from MIDAS GEN NX via the
+    REST API using :meth:`create`, :meth:`get`, :meth:`sync`, and
+    :meth:`delete`.
+
+    Class Attributes:
+        sect (list[_helperSECTION]): All section objects in the current session.
+        ids (list[int]): Database IDs of all registered sections.
+        _dic (dict): Mapping of section name → section ID.
+
+    Section type hierarchy::
+
+        Section
+        ├── DBUSER(...)          — Standard shape with user dimensions
+        ├── DB(...)              — Shape sourced from a codal database
+        ├── Composite
+        │   ├── SteelI_Type1(…)  — Composite steel I-girder (Type 1)
+        │   ├── SteelTub_Type1(…)— Composite steel tub girder (Type 1)
+        └── Tapered
+            ├── DBUSER(...)      — Tapered standard shape
+            ├── SteelTub_Type1(…)— Tapered composite steel tub
+            └── bySHAPE(...)     — Tapered section built from two end sections
+
+    Example::
+
+        s1 = Section.DBUSER("Girder", "H", [1000, 300, 200, 300, 20, 20, 15])
+        s2 = Section.DB("HEA300", "H", "EN", "HEA300")
+        Section.create()   # push all sections to MIDAS
+    """
+    sect: list[_helperSECTION] = []
+    ids: list[int] = []
+    _dic = {}
 
     @classmethod
     def json(cls):
+        """Serialise all registered sections to the MIDAS API JSON format.
+
+        Returns:
+            dict: ``{"Assign": {id: section_json, ...}}`` ready for the
+            ``/db/SECT`` endpoint.
+        """
         json = {"Assign":{}}
         for sect in cls.sect:
             js = sect.toJSON()
             json["Assign"][str(sect.ID)] = js
         return json
-    
+
     @staticmethod
     def create():
+        """Push all registered sections to MIDAS GEN NX (PUT /db/SECT)."""
         MidasAPI("PUT","/db/SECT",Section.json())
-
 
     @staticmethod
     def get():
+        """Retrieve all sections from MIDAS GEN NX (GET /db/SECT).
+
+        Returns:
+            dict: Raw API response containing the ``'SECT'`` dictionary.
+        """
         return MidasAPI("GET","/db/SECT")
-    
-    
+
     @staticmethod
     def delete():
+        """Delete all sections from MIDAS GEN NX and clear the local database."""
         MidasAPI("DELETE","/db/SECT")
         Section.clear()
 
     @staticmethod
     def clear():
+        """Clear the local section database without affecting the MIDAS model."""
         Section.sect=[]
         Section.ids=[]
 
-
     @staticmethod
-    def sync(bDBSectParams = False, bSectionProperty= False):
+    def sync(bDBSectParams: bool = False, bSectionProperty: bool = False):
+        """Pull sections from MIDAS GEN NX and rebuild the local database.
+
+        Fetches all sections via the API and reconstructs the corresponding
+        Python objects. Optionally retrieves additional section data.
+
+        Args:
+            bDBSectParams (bool): If ``True``, also fetch raw dimension
+                parameters for ``DBUSER`` (database) sections from the
+                ``SECTIONDB/USER`` result table and attach them as a
+                ``PARAMS`` attribute on each matching section object.
+            bSectionProperty (bool): If ``True``, also fetch computed section
+                properties (area, shear areas, moments of inertia) from the
+                ``SECTIONALL`` result table and attach them as ``AREA``,
+                ``ASY``, ``ASZ``, ``IXX``, ``IYY``, ``IZZ`` attributes.
+        """
         a = Section.get()
         if a != {'message': ''}:
             Section.sect = []
@@ -197,114 +255,261 @@ class Section:
 
     #---------------------     D B   U S E R    --------------------
     @staticmethod
-    def DBUSER(Name:str='',Shape:_dbsection='',parameters:list=[],Offset=Offset(),useShear:bool=True,use7Dof:bool=False,id:int=None): 
-        '''
-        Standard Sections with User Inputs
-        
-        :param Name: Name of the Section
-        :type Name: str
-        :param Shape: Shape of Section
-        :type Shape: _dbsection
-        :param parameters: Section dimensions
-        :type parameters: list
-        :param Offset: Offset of Section
-        :param useShear: Consider Shear Deformation
-        :type useShear: bool
-        :param use7Dof: Consider Warping Effect
-        :type use7Dof: bool
-        :param id: ID of section
-        :type id: int
-        '''
+    def DBUSER(Name:str='',Shape:_dbsection='',parameters:list=[],Offset=Offset(),useShear:bool=True,use7Dof:bool=False,id:int=None):
+        """Create a standard section with user-defined dimensions.
+
+        The section shape is one of the built-in database shapes, but the
+        dimensions are provided directly rather than looked up from a codal
+        database. Both I- and J-end parameters are identical (prismatic).
+
+        Args:
+            Name (str): Section name.
+            Shape (_dbsection): Shape code — one of ``'L'``, ``'C'``, ``'H'``,
+                ``'T'``, ``'B'``, ``'P'``, ``'2L'``, ``'2C'``, ``'SB'``,
+                ``'SR'``, ``'OCT'``.
+            parameters (list[float]): Section dimensions. Order depends on the
+                chosen shape (see MIDAS GEN NX section definition).
+            Offset (Offset): Cross-section offset. Defaults to centroid (CC).
+            useShear (bool): Include shear deformation. Default ``True``.
+            use7Dof (bool): Include warping (7th DOF) effect. Default ``False``.
+            id (int | None): Section database ID. Auto-assigned when ``None``.
+
+        Returns:
+            _SS_DBUSER: The created section object.
+
+        Example::
+
+            Section.DBUSER("MainGirder", "H", [1000, 300, 200, 300, 20, 20, 15, 0])
+        """
         args = locals()
         sect_Obj = _SS_DBUSER(**args)
         _SectionADD(sect_Obj)
         return sect_Obj
     
     @staticmethod
-    def DB(Name:str='',Shape:_dbsection='',DB_Name:str='',Sect_Name:str='',Offset=Offset(),useShear:bool=True,use7Dof:bool=False,id:int=None): 
-        '''
-        Standard Sections from Codal Database
-        
-        :param Name: Name of Section
-        :type Name: str
-        :param Shape: Shape of Section
-        :type Shape: _dbsection
-        :param DB_Name: Database Name
-        :type DB_Name: str
-        :param Sect_Name: DB Section Name
-        :type Sect_Name: str
-        :param Offset: Offset of Section
-        :param useShear: Consider Shear Deformation
-        :type useShear: bool
-        :param use7Dof: Consider Warping Effect
-        :type use7Dof: bool
-        :param id: ID of section
-        :type id: int
-        ''' 
+    def DB(Name:str='',Shape:_dbsection='',DB_Name:str='',Sect_Name:str='',Offset=Offset(),useShear:bool=True,use7Dof:bool=False,id:int=None):
+        """Create a section sourced from a codal steel/section database.
+
+        Dimensions are looked up by MIDAS from the specified database entry
+        rather than entered manually.
+
+        Args:
+            Name (str): Section name used within the model.
+            Shape (_dbsection): Shape code (e.g. ``'H'``, ``'L'``, ``'C'``).
+            DB_Name (str): Name of the codal database (e.g. ``'EN'``, ``'AISC'``).
+            Sect_Name (str): Name of the section within the database
+                (e.g. ``'HEA300'``, ``'W14X22'``).
+            Offset (Offset): Cross-section offset. Defaults to centroid (CC).
+            useShear (bool): Include shear deformation. Default ``True``.
+            use7Dof (bool): Include warping (7th DOF) effect. Default ``False``.
+            id (int | None): Section database ID. Auto-assigned when ``None``.
+
+        Returns:
+            _SS_DB_SECTION: The created section object.
+
+        Example::
+
+            Section.DB("Column", "H", "EN", "HEA300")
+        """
         args = locals()
         sect_Obj = _SS_DB_SECTION(**args)
         _SectionADD(sect_Obj)
         return sect_Obj
     
+    class Composite:
+        """Factory methods for composite sections (steel or PSC girder + concrete slab)."""
 
-    class Composite :
-        
         @staticmethod
-        def SteelI_Type1(Name='',Bc=0,tc=0,Hh=0,Hw=0,B1=0,tf1=0,tw=0,B2=0,tf2=0,EsEc =0, DsDc=0,Ps=0,Pc=0,TsTc=0,
-                MultiModulus = False,CreepEratio=0,ShrinkEratio=0,
-                Offset:Offset=Offset.CC(),useShear:bool=True,use7Dof:bool=False,id:int=None):
-             
+        def SteelI_Type1(Name='', Bc=0, tc=0, Hh=0, Hw=0, B1=0, tf1=0, tw=0, B2=0, tf2=0,
+                EsEc=0, DsDc=0, Ps=0, Pc=0, TsTc=0,
+                MultiModulus=False, CreepEratio=0, ShrinkEratio=0,
+                Offset: Offset = Offset.CC(), useShear: bool = True, use7Dof: bool = False, id: int = None):
+            """Create a composite steel I-girder section, Type 1 (symmetric I + slab).
+
+            Args:
+                Name (str): Section name.
+                Bc (float): Effective slab width.
+                tc (float): Slab thickness.
+                Hh (float): Haunch height.
+                Hw (float): Steel web height.
+                B1 (float): Top flange width.
+                tf1 (float): Top flange thickness.
+                tw (float): Web thickness.
+                B2 (float): Bottom flange width.
+                tf2 (float): Bottom flange thickness.
+                EsEc (float): Modular ratio steel / concrete (E_s / E_c).
+                DsDc (float): Unit weight ratio steel / concrete.
+                Ps (float): Steel Poisson's ratio.
+                Pc (float): Concrete Poisson's ratio.
+                TsTc (float): Thermal expansion ratio.
+                MultiModulus (bool): Use multi-modulus method.
+                CreepEratio (float): Creep modular ratio.
+                ShrinkEratio (float): Shrinkage modular ratio.
+                Offset (Offset): Cross-section offset. Defaults to centroid (CC).
+                useShear (bool): Include shear deformation. Default ``True``.
+                use7Dof (bool): Include warping effect. Default ``False``.
+                id (int | None): Section ID. Auto-assigned when ``None``.
+
+            Returns:
+                _SS_COMP_STEEL_I_TYPE1: The created section object.
+            """
             args = locals()
             sect_Obj = _SS_COMP_STEEL_I_TYPE1(**args)
-            
             _SectionADD(sect_Obj)
             return sect_Obj
-        
+
         @staticmethod
         def SteelTub_Type1(Name='',
-                Bc=0,tc=0,Hh=0,
-                Hw=0,B1=0,Bf1=0,tf1=0,Bf3=0,
-                tw=0,B2=0,Bf2=0,tf2=0,tfp=0,
-                EsEc =0, DsDc=0,Ps=0,Pc=0,TsTc=0,
-                MultiModulus = False,CreepEratio=0,ShrinkEratio=0,
-                Offset:Offset=Offset.CC(),useShear:bool=True,use7Dof:bool=False,id:int=None):
-             
+                Bc=0, tc=0, Hh=0,
+                Hw=0, B1=0, Bf1=0, tf1=0, Bf3=0,
+                tw=0, B2=0, Bf2=0, tf2=0, tfp=0,
+                EsEc=0, DsDc=0, Ps=0, Pc=0, TsTc=0,
+                MultiModulus=False, CreepEratio=0, ShrinkEratio=0,
+                Offset: Offset = Offset.CC(), useShear: bool = True, use7Dof: bool = False, id: int = None):
+            """Create a composite steel tub (U-girder) section, Type 1.
+
+            Args:
+                Name (str): Section name.
+                Bc (float): Effective slab width.
+                tc (float): Slab thickness.
+                Hh (float): Haunch height.
+                Hw (float): Web height.
+                B1 (float): Top flange width (left).
+                Bf1 (float): Top flange overhang (left).
+                tf1 (float): Top flange thickness.
+                Bf3 (float): Top flange inner width.
+                tw (float): Web thickness.
+                B2 (float): Bottom flange width.
+                Bf2 (float): Bottom flange overhang.
+                tf2 (float): Bottom flange thickness.
+                tfp (float): Top plate thickness.
+                EsEc (float): Modular ratio steel / concrete.
+                DsDc (float): Unit weight ratio steel / concrete.
+                Ps (float): Steel Poisson's ratio.
+                Pc (float): Concrete Poisson's ratio.
+                TsTc (float): Thermal expansion ratio.
+                MultiModulus (bool): Use multi-modulus method.
+                CreepEratio (float): Creep modular ratio.
+                ShrinkEratio (float): Shrinkage modular ratio.
+                Offset (Offset): Cross-section offset. Defaults to centroid (CC).
+                useShear (bool): Include shear deformation. Default ``True``.
+                use7Dof (bool): Include warping effect. Default ``False``.
+                id (int | None): Section ID. Auto-assigned when ``None``.
+
+            Returns:
+                _SS_COMP_STEEL_TUB_TYPE1: The created section object.
+            """
             args = locals()
             sect_Obj = _SS_COMP_STEEL_TUB_TYPE1(**args)
-            
             _SectionADD(sect_Obj)
             return sect_Obj
-            
+
     
     class Tapered:
+        """Factory methods for tapered sections whose shape varies from I-end to J-end."""
 
         @staticmethod
-        def DBUSER(Name:str='',Shape:_dbsection='',params_I:list=[],params_J:list=[],Offset=Offset(),useShear:bool=True,use7Dof:bool=False,id:int=None):
+        def DBUSER(Name: str = '', Shape: _dbsection = '', params_I: list = [], params_J: list = [],
+                   Offset=Offset(), useShear: bool = True, use7Dof: bool = False, id: int = None):
+            """Create a tapered standard section with user-defined I/J-end dimensions.
+
+            Args:
+                Name (str): Section name.
+                Shape (_dbsection): Shape code — one of ``'L'``, ``'C'``, ``'H'``,
+                    ``'T'``, ``'B'``, ``'P'``, ``'SB'``, etc.
+                params_I (list[float]): Dimensions at the I-end (start of element).
+                params_J (list[float]): Dimensions at the J-end (end of element).
+                Offset (Offset): Cross-section offset. Defaults to centroid (CC).
+                useShear (bool): Include shear deformation. Default ``True``.
+                use7Dof (bool): Include warping effect. Default ``False``.
+                id (int | None): Section ID. Auto-assigned when ``None``.
+
+            Returns:
+                _SS_TAPERED_DBUSER: The created section object.
+            """
             args = locals()
             sect_Obj = _SS_TAPERED_DBUSER(**args)
-            
             _SectionADD(sect_Obj)
             return sect_Obj
-        
-        
+
         @staticmethod
         def SteelTub_Type1(Name='',
-                Bc=0,tc=0,Hh=0,
+                Bc=0, tc=0, Hh=0,
                 params_I=[0,0,0,0,0,0,0,0,0,0],
                 params_J=[0,0,0,0,0,0,0,0,0,0],
-                EsEc =0, DsDc=0,Ps=0,Pc=0,TsTc=0,
-                MultiModulus = False,CreepEratio=0,ShrinkEratio=0,
-                Offset:Offset=Offset.CC(),useShear:bool=True,use7Dof:bool=False,id:int=None):
-             
+                EsEc=0, DsDc=0, Ps=0, Pc=0, TsTc=0,
+                MultiModulus=False, CreepEratio=0, ShrinkEratio=0,
+                Offset: Offset = Offset.CC(), useShear: bool = True, use7Dof: bool = False, id: int = None):
+            """Create a tapered composite steel tub (U-girder) section, Type 1.
+
+            The steel tub geometry varies from I-end to J-end via 10-element
+            parameter lists (``params_I`` / ``params_J``); the concrete slab
+            dimensions are constant along the element.
+
+            Args:
+                Name (str): Section name.
+                Bc (float): Effective slab width (constant along element).
+                tc (float): Slab thickness.
+                Hh (float): Haunch height.
+                params_I (list[float]): 10 steel tub dimension values at I-end
+                    ``[Hw, B1, Bf1, tf1, Bf3, tw, B2, Bf2, tf2, tfp]``.
+                params_J (list[float]): 10 steel tub dimension values at J-end
+                    (same order as ``params_I``).
+                EsEc (float): Modular ratio steel / concrete.
+                DsDc (float): Unit weight ratio steel / concrete.
+                Ps (float): Steel Poisson's ratio.
+                Pc (float): Concrete Poisson's ratio.
+                TsTc (float): Thermal expansion ratio.
+                MultiModulus (bool): Use multi-modulus method.
+                CreepEratio (float): Creep modular ratio.
+                ShrinkEratio (float): Shrinkage modular ratio.
+                Offset (Offset): Cross-section offset. Defaults to centroid (CC).
+                useShear (bool): Include shear deformation. Default ``True``.
+                use7Dof (bool): Include warping effect. Default ``False``.
+                id (int | None): Section ID. Auto-assigned when ``None``.
+
+            Returns:
+                _SS_TAP_COMP_STEEL_TUB_TYPE1: The created section object.
+            """
             args = locals()
             sect_Obj = _SS_TAP_COMP_STEEL_TUB_TYPE1(**args)
-            
             _SectionADD(sect_Obj)
             return sect_Obj
 
-
         @staticmethod
-        def bySHAPE(Name:str,Sect_I:_Section,Sect_J:_Section,Offset=Offset(),useShear:bool=True,use7Dof:bool=False,id:int=None):
+        def bySHAPE(Name: str, Sect_I: _Section, Sect_J: _Section,
+                    Offset=Offset(), useShear: bool = True, use7Dof: bool = False, id: int = None):
+            """Create a tapered section by combining two existing prismatic end sections.
+
+            Inspects the types of ``Sect_I`` and ``Sect_J`` and constructs the
+            appropriate tapered section object automatically. Both sections must
+            be the same type and, for ``DBUSER`` sections, the same shape code.
+
+            Supported end-section types:
+                - ``_SS_DBUSER`` → ``_SS_TAPERED_DBUSER``
+                - ``_SS_PSC_12CELL`` → ``_SS_TAP_PSC_12CELL``
+                - ``_SS_PSC_Value`` → ``_SS_TAP_PSC_Value``
+
+            Args:
+                Name (str): Name for the new tapered section.
+                Sect_I: Prismatic section object at the I-end.
+                Sect_J: Prismatic section object at the J-end (must match type
+                    and shape of ``Sect_I``).
+                Offset (Offset): Cross-section offset. Defaults to centroid (CC).
+                useShear (bool): Include shear deformation. Default ``True``.
+                use7Dof (bool): Include warping effect. Default ``False``.
+                id (int | None): Section ID. Auto-assigned when ``None``.
+
+            Returns:
+                Tapered section object, or ``False`` if the end sections are
+                incompatible.
+
+            Example::
+
+                s_i = Section.DBUSER("EndI", "H", [900, 300, 200, 300, 20, 20, 12, 0])
+                s_j = Section.DBUSER("EndJ", "H", [600, 300, 200, 300, 16, 16, 10, 0])
+                Section.Tapered.bySHAPE("TapGirder", s_i, s_j)
+            """
             if not isinstance(Sect_I, type(Sect_J)):
                 print(f"  ⚠️   Section of I and J end does not match for '{Name}' section")
                 return False
@@ -323,7 +528,23 @@ class Section:
 
 #---------------------------------     T A P E R E D   G R O U P    ---------------------------------------------
     class TaperedGroup:
-        
+        """database and API wrapper for MIDAS GEN NX Tapered Section Groups (TSGR).
+
+        A Tapered Group assigns a variation law (linear or polynomial) to the
+        cross-section change along a set of elements that share a tapered
+        section. MIDAS requires this grouping to interpolate section properties
+        correctly during analysis.
+
+        Class Attributes:
+            data (list): All ``TaperedGroup`` instances in the current session.
+
+        Example::
+
+            Section.TaperedGroup("LinGrp", [1, 2, 3], "LINEAR", "LINEAR")
+            Section.TaperedGroup("PolyGrp", [4, 5], "POLY", "LINEAR", z_exp=2.5)
+            Section.TaperedGroup.create()
+        """
+
         data = []
         
         def __init__(self, name, elem_list:list, z_var:_variation="LINEAR", y_var:_variation="LINEAR", z_exp:float=2.0, z_from:_symplane="i", z_dist:float=0, 
@@ -381,6 +602,13 @@ class Section:
         
         @classmethod
         def json(cls):
+            """Serialise all tapered groups to the MIDAS API JSON format.
+
+            Returns:
+                dict: ``{"Assign": {id: group_data, ...}}`` ready for the
+                ``/db/tsgr`` endpoint. Polynomial-only fields (``ZEXP``,
+                ``ZDIST``, ``YEXP``, ``YDIST``) are omitted for linear groups.
+            """
             json_data = {"Assign": {}}
             for i in cls.data:
                 # Base data that's always included
@@ -409,10 +637,24 @@ class Section:
         
         @classmethod
         def create(cls):
+            """Push all tapered groups to MIDAS GEN NX (PUT /db/tsgr)."""
             MidasAPI("PUT", "/db/tsgr", cls.json())
-        
+
         @classmethod
         def autoGenerate(cls):
+            """Auto-create one tapered group per tapered section based on element assignments.
+
+            Iterates over all sections in ``Section.sect`` that have
+            ``TYPE == 'TAPERED'``, finds every element referencing each
+            tapered section from ``Element.elements``, and creates a
+            ``TaperedGroup`` named ``TG_SecID{id}`` for each. The local
+            database is cleared before generation.
+
+            Note:
+                Uses linear variation (default) for all generated groups. Call
+                individual ``TaperedGroup`` constructors manually to set
+                polynomial variation.
+            """
             from midas_gen import Element
             _tapSectElems = {}
             _tapSectIDs = []
@@ -435,19 +677,32 @@ class Section:
         
         @classmethod
         def get(cls):
+            """Retrieve all tapered groups from MIDAS GEN NX (GET /db/tsgr).
+
+            Returns:
+                dict: Raw API response containing the ``'TSGR'`` dictionary.
+            """
             return MidasAPI("GET", "/db/tsgr")
-        
+
         @classmethod
         def delete(cls):
+            """Delete all tapered groups from MIDAS GEN NX and clear the local database."""
             cls.clear()
             return MidasAPI("DELETE", "/db/tsgr")
-        
+
         @classmethod
         def clear(cls):
+            """Clear the local tapered group database without affecting the MIDAS model."""
             cls.data = []
-        
+
         @classmethod
         def sync(cls):
+            """Pull tapered groups from MIDAS GEN NX and rebuild the local database.
+
+            Fetches all tapered groups via the API and reconstructs the
+            corresponding ``TaperedGroup`` objects. The local database is
+            cleared before repopulating.
+            """
             cls.data = []
             response = cls.get()
             

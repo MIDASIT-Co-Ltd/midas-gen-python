@@ -5,8 +5,10 @@ try:import winreg
 except: pass
 import time
 from tqdm import tqdm
+from typing import Literal
 # import polars as pl
 
+_httpMethod = Literal["PUT","POST","DELETE","GET"]
 
 
 def Midas_help():
@@ -27,6 +29,13 @@ class NX:
     modelIDs = {} # Handles the fast MAX ID
     autoTaperGroup = False
     PRODUCT = 'GEN'
+
+    units = {
+        "FORCE": "KN",
+        "DIST": "M",
+        "HEAT": "KJ",
+        "TEMPER": "C"
+    }
 
     # Function for quick saving of JSON
     @staticmethod
@@ -162,7 +171,7 @@ class MAPI_KEY:
     def get_key(cls):
         if MAPI_KEY.data == "":
             try:
-                key_path = f"Software\\MIDAS\\CVLwNX_{MAPI_COUNTRY.country}\\CONNECTION"  
+                key_path = f"Software\\MIDAS\\MIDASGENNX_{MAPI_COUNTRY.country}\\CONNECTION"  
                 registry_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_READ)
                 value = winreg.QueryValueEx(registry_key, "Key")
                 my_key = value[0]
@@ -178,7 +187,7 @@ class MAPI_KEY:
 #---------------------------------------------------------------------------------------------------------------
 
 #2 midas API link code:
-def MidasAPI(method:str, command:str, body:dict={})->dict:
+def MidasAPI(method:_httpMethod, command:str, body:dict={})->dict:
     """Sends HTTP Request to MIDAS GEN NX
             Parameters:
                 Method: "PUT" , "POST" , "GET" or "DELETE"
@@ -216,6 +225,9 @@ def MidasAPI(method:str, command:str, body:dict={})->dict:
         response = requests.get(url=url, headers=headers)
     elif method == "DELETE":
         response = requests.delete(url=url, headers=headers)
+    else:
+        print(f"Invalid HTTP method entered {method}.")
+        return False
 
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
@@ -231,14 +243,14 @@ def MidasAPI(method:str, command:str, body:dict={})->dict:
         MAPI_KEY.count = -1
         if response.status_code == 404:
             print(Fore.RED +'\n╭─ 💀   ─────────────────────────────────────────────────────────────────────────────╮')
-            print(f"│  GEN NX model is not connected.  Click on 'Apps > Connect' in GEN NX.          │")
-            print(f"│  Make sure the MAPI Key in python code is matching with the MAPI key in GEN NX.  │")
+            print(f"│  GEN NX model is not connected.  Click on 'Apps > Connect' in MIDAS GEN NX.        │")
+            print(f"│  Make sure the MAPI Key in python code is matching with the MAPI key in GEN NX.    │")
             print('╰────────────────────────────────────────────────────────────────────────────────────╯\n'+Style.RESET_ALL)
             sys.exit(0)
         elif response.status_code == 401:
             print(Fore.RED +'\n╭─ 💀   ─────────────────────────────────────────────────────────────────────────────╮')
             print(f"│  MAPI KEY entered is invalid.                                                      │")
-            print(f"│  Please consider refreshing MAPI-Key in GEN NX and resending the request.        │")
+            print(f"│  Please consider refreshing MAPI-Key in GEN NX and resending the request.          │")
             print('╰────────────────────────────────────────────────────────────────────────────────────╯\n'+Style.RESET_ALL)
             sys.exit(0)
         
@@ -269,8 +281,8 @@ def _checkUSER():
         _product = resp['NAME']
         if 'GEN' in _product:
             NX.PRODUCT = 'GEN'
-        elif 'GEN' in _product:
-            NX.PRODUCT = 'GEN'
+        elif 'CIVIL' in _product:
+            NX.PRODUCT = 'CIVIL'
 
         # print(f"{' '*15}Connected to {resp['NAME']}")
         # print(f"{' '*15}USER : {resp['USER']}          COMPANY : {resp['COMPANY']}")
@@ -291,7 +303,7 @@ def _checkUSER():
         if NX.PRODUCT !='GEN':
             tqdm.write(Fore.YELLOW +'╭─ ⚠️   ──────────────────────────────────────────────────────────────────────────────╮')
             tqdm.write(f"│      Warning: You are using midas_gen library to connect with CIVIL NX.            │")
-            tqdm.write(f"│      Some CIVIL NX specific options may not be avaialble.                            │")
+            tqdm.write(f"│      Some CIVIL NX specific options may not be avaialble.                          │")
             tqdm.write('╰────────────────────────────────────────────────────────────────────────────────────╯\n'+Style.RESET_ALL)
 
 

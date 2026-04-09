@@ -1,7 +1,7 @@
 from ._mapi import MidasAPI
 from typing import Literal
 
-_CompSecType = Literal['GENERAL','USER']
+_CompSecType = Literal['GENERAL','USER','NORMAL']
 
 
 class CS:
@@ -459,7 +459,7 @@ class CS:
             Parameters:
                 activation_stage: Active Stage name (required)
                 section_id: Section ID (required)
-                comp_type: Composite Type - "GENERAL" or "USER" (default "GENERAL")
+                comp_type: Composite Type - "GENERAL" or "USER" or "NORMAL" (default "GENERAL")
                 tapered_type: Tapered Type - True or False (default False)
                 partinfo: List of part information lists (required)
                 id: The composite section ID (optional)
