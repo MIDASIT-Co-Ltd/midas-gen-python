@@ -43,7 +43,19 @@ def _ADD_LoadCase(self):
     for i in range(len(self.ID)):
         Load_Case.cases.append(_LoadCase(self.TYPE,self.NAME[i],self.ID[i],self.NO[i]))
         
+def _ADD_NodalMass(self):
+    if isinstance(self.NODE_ID,int):
+        Load.NodalMass.data.append(self)
+    elif isinstance(self.NODE_ID,(list,tuple,set,)):
+        for nID in self.NODE_ID:
+            Load.NodalMass(nID,self.MX,self.MY,self.MZ,self.RMX,self.RMY,self.RMZ)
 
+def _ADD_SpDisp(self):
+    if isinstance(self.NODE,int):
+        Load.SpDisp.data.append(self)
+    elif isinstance(self.NODE,(list,tuple,set,)):
+        for nID in self.NODE:
+            Load.SpDisp(nID,self.LCN,self.LDGR,self.VALUES,self.ID)
 
 # class _hLC:
 #     ID, NAME, TYPE , NO= 0,0,0,0
@@ -139,11 +151,14 @@ class Load:
 
     @classmethod
     def create(cls):
-        if Load_Case.cases!=[]: Load_Case.create()
-        if cls.SW.data!=[]: cls.SW.create()
-        if cls.Nodal.data!=[]: cls.Nodal.create()
-        if cls.Beam.data!=[]: cls.Beam.create()
-        if cls.Pressure.data!=[]: cls.Pressure.create()
+        if Load_Case.cases: Load_Case.create()
+        if cls.SW.data: cls.SW.create()
+        if cls.Nodal.data: cls.Nodal.create()
+        if cls.Beam.data: cls.Beam.create()
+        if cls.Pressure.data: cls.Pressure.create()
+        if cls.FloorLoadDefine.data : cls.FloorLoadDefine.create()
+        if cls.FloorLoadAssign.data : cls.FloorLoadAssign.create()
+        if cls.Misc.PreCompositeSection.loadCases : cls.Misc.PreCompositeSection.create()
     
     @classmethod
     def clear(cls):
@@ -152,6 +167,10 @@ class Load:
         cls.Nodal.clear()
         cls.Beam.clear()
         cls.Pressure.clear()
+        cls.FloorLoadAssign.clear()
+        cls.FloorLoadDefine.clear()
+        cls.Misc.PreCompositeSection.clear()
+        
 
     class SW:
         """Load Case Name, direction, Value, Load Group.\n
@@ -188,7 +207,8 @@ class Load:
             self.FV = fv
             self.LG = load_group
             self.ID = len(Load.SW.data) + 1
-            Load.SW.data.append(self)
+            if any(self.FV):
+                Load.SW.data.append(self)
         
         @classmethod
         def json(cls):
@@ -276,7 +296,8 @@ class Load:
             else:
                 self.ID = id
 
-            _ADD_NodalLoad(self)
+            if any([FX,FY,FZ,MX,MY,MZ]):
+                _ADD_NodalLoad(self)
             # Load.Nodal.data.append(self)
         
         @classmethod
@@ -332,7 +353,7 @@ class Load:
     #19 Class to define Beam Loads:
     class Beam:
         data = []
-        def __init__(self, element:int, load_case: str, load_group: str = "", value: float=0, direction:_beamLoadDir = "GZ",
+        def __init__(self, element:list[int], load_case: str, load_group: str = "", value: float=0, direction:_beamLoadDir = "GZ",
              D:list = [0, 1, 0, 0], P = [0, 0, 0, 0], cmd = "BEAM", typ:_beamLoadType = "UNILOAD", use_ecc = False, use_proj = False,
             eccn_dir = "LY", eccn_type = 1, ieccn = 0, jeccn = 0, adnl_h = False, adnl_h_i = 0, adnl_h_j = 0,id = None): 
             """
@@ -412,7 +433,8 @@ class Load:
             else:
                 self.ID = id
 
-            _ADD_BeamLoad(self)
+            if any(self.P):
+                _ADD_BeamLoad(self)
             # Load.Beam.data.append(self)
         
         @classmethod
@@ -530,7 +552,11 @@ class Load:
         data = []
         
         def __init__(self, dir, load_case, load_factor=None, nodal_load=True, beam_load=True, 
-                    floor_load=True, pressure=True, gravity=9.806):
+                    floor_load=True, pressure=True, gravity=None):
+            
+            if gravity == None: 
+                from ._model import Model
+                gravity = Model.gravity()
 
             valid_directions = ["X", "Y", "Z", "XY", "YZ", "XZ", "XYZ"]
             if dir not in valid_directions:
@@ -564,7 +590,8 @@ class Load:
             self.PRESSURE = pressure
             self.GRAVITY = gravity
             
-            Load.LoadToMass.data.append(self)
+            if any(self.LOAD_FACTOR):
+                Load.LoadToMass.data.append(self)
         
         @classmethod
         def json(cls):
@@ -630,7 +657,6 @@ class Load:
 
 
     #-----------------------------------------------------------NodalMass-----------------
-    #21NodalMass
 
     class NodalMass:
         """Creates nodal mass and converts to JSON format.
@@ -638,7 +664,7 @@ class Load:
         """
         data = []
 
-        def __init__(self, node_id, mX, mY=0, mZ=0, rmX=0, rmY=0, rmZ=0):
+        def __init__(self, node_id:list[int], mX:float=0, mY:float=0, mZ:float=0, rmX:float=0, rmY:float=0, rmZ:float=0):
             """
             node_id (int): Node ID where the mass is applied (Required)
             mX (float): Translational Lumped Mass in GCS X-direction (Required)
@@ -656,7 +682,9 @@ class Load:
             self.RMY = rmY
             self.RMZ = rmZ
             
-            Load.NodalMass.data.append(self)
+            if any([mX,mY,mZ,rmX,rmY,rmZ]):
+                _ADD_NodalMass(self)
+            # Load.NodalMass.data.append(self)
         
         @classmethod
         def json(cls):
@@ -730,7 +758,7 @@ class Load:
             self.NAME = name
             self.DESC = desc
 
-            # Parse items — each entry is [load_case, value] or [load_case, value, sub_beam_weight]
+            # Parse items each entry is [load_case, value] or [load_case, value, sub_beam_weight]
             parsed_items = []
             for entry in items:
                 if len(entry) == 2:
@@ -960,9 +988,9 @@ class Load:
         """
         data = []
         
-        def __init__(self, node, load_case, load_group="", values=[0, 0, 0, 0, 0, 0], id=None):
+        def __init__(self, node:list[int], load_case:str, load_group:str="", values:list[float]=[0, 0, 0, 0, 0, 0], id:int=None):
             """
-            node (int): Node number (Required)
+            node (int): Node ID or list of Node IDs (Required)
             load_case (str): Load case name (Required)
             load_group (str, optional): Load group name. Defaults to ""
             values (list): Displacement values [Dx, Dy, Dz, Rx, Ry, Rz]. Defaults to [0, 0, 0, 0, 0, 0]
@@ -1003,7 +1031,9 @@ class Load:
             else:
                 self.ID = id
 
-            Load.SpDisp.data.append(self)
+            if any(values):
+                _ADD_SpDisp(self)
+                # Load.SpDisp.data.append(self)
         
         @classmethod
         def json(cls):
@@ -1067,8 +1097,10 @@ class Load:
                             values,
                             item['ID']
                         )
+
+
     class Line:
-        def __init__(self, element_ids, load_case: str, load_group: str = "", D = [0, 1], P = [0, 0], direction:_beamLoadDir = "GZ",
+        def __init__(self, element_ids:list[int], load_case: str, load_group: str = "", D = [0, 1], P = [0, 0], direction:_beamLoadDir = "GZ",
             type:_beamLoadType = "UNILOAD", distType:_lineDistType='Abs',use_ecc = False, use_proj = False,
             eccn_dir:_beamLoadDir = "LY", eccn_type = 1, ieccn = 0, jeccn = 0, adnl_h = False, adnl_h_i = 0, adnl_h_j = 0,id = None) :
 
@@ -1142,7 +1174,7 @@ class Load:
         
         """
         data = []
-        def __init__(self, element:list, load_case:str, load_group:str = "", D:_presDir='LZ', P:list=0, VectorDir:list = [1,0,0],bProjection:bool = False,id:int = None):
+        def __init__(self, element:list[int], load_case:str, load_group:str = "", D:_presDir='LZ', P:list=0, VectorDir:list = [1,0,0],bProjection:bool = False,id:int = None):
 
 
             chk = 0
@@ -1171,7 +1203,8 @@ class Load:
             else:
                 self.ID = id
 
-            _ADD_PressureLoad(self)
+            if any(self.PRES):
+                _ADD_PressureLoad(self)
 
         
         @classmethod
@@ -1247,3 +1280,59 @@ class Load:
                                 _defVector,_defProjOpt,
                                 a['PRES'][i]['ITEMS'][j]['ID'],
                                 )
+                            
+
+    class Misc:
+
+        class PreCompositeSection:
+
+            loadCases = set()
+
+            def __init__(self,*loadCase:str):
+                ''' Enter Load Cases to be added in Pre-Composite Section.
+
+                Example::
+
+                    Load.Misc.PreCompositeSection('Self Weight','SIDL','Load Case')
+                '''
+                for lCase in loadCase:
+                    Load.Misc.PreCompositeSection.loadCases.add(lCase)
+
+            
+            @classmethod
+            def json(cls):
+                jsDat = {
+                        "Assign": {
+                            "1": {
+                                "LCNAME_ITEM": []
+                            }
+                        }
+                    }
+                jsDat['Assign']['1']['LCNAME_ITEM'] = list(cls.loadCases)
+                
+                return jsDat
+            
+            @classmethod
+            def create(cls):
+                MidasAPI("PUT","/db/PLCB",cls.json())
+
+            @classmethod
+            def get(cls):
+                return MidasAPI("GET", "/db/PLCB")
+            
+            @classmethod
+            def delete(cls):
+                cls.clear()
+                return MidasAPI("DELETE", "/db/PLCB")
+            
+            @classmethod
+            def clear(cls):
+                cls.loadCases=set()
+
+            @classmethod
+            def sync(cls):
+                cls.loadCases = set()
+                a = cls.get()
+                if a != {'message': ''}:
+                    cls.loadCases = set(a['PLCB']["1"]["LCNAME_ITEM"])
+

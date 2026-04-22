@@ -61,6 +61,7 @@ class Node:
 
     nodes: list[_hNode] = []
     ids: list[int] = []
+    maxID:int = 0
     Grid = {}
     __nodeDic__ = {}
 
@@ -93,10 +94,13 @@ class Node:
         if id == None: id =0
         #----------------- ORIGINAL -----------------------
     
-        if Node.ids == []: 
-            node_count = 1
-        else:
-            node_count = max(Node.ids)+1
+
+        node_count = Node.maxID+1
+
+        # if Node.ids == []: 
+        #     node_count = 1
+        # else:
+        #     node_count = max(Node.ids)+1
         
         
         self.X = round(x,6)
@@ -106,6 +110,8 @@ class Node:
 
         if id == 0 : self.ID = node_count
         if id != 0 : self.ID = id
+
+        
 
 
         #REPLACE - No merge check
@@ -159,6 +165,8 @@ class Node:
             
         if group !="":
             _add_node_2_stGroup(self.ID,group)
+
+        Node.maxID = max(self.ID,Node.maxID)
 
     @property
     def LOC(self):
@@ -241,6 +249,7 @@ class Node:
         Node.ids=[]
         Node.Grid={}
         Node.__nodeDic__ = {}
+        Node.maxID = 0
 
     @staticmethod
     def SE(s_loc: list, e_loc: list, n: int = 1, id: int = None, group: str = '', merge: bool = True):

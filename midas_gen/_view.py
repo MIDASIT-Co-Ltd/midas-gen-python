@@ -272,7 +272,7 @@ class ResultGraphic:
                     "TYPE":lcase_type,
                     "NAME":lcase_name,
                     "MINMAX" : lcase_minmax,
-                    "STEP_INDEX": 1,
+                    "STEP_INDEX": 2,
                     "OPT_MAXMIN_DIAGRAM": False
                 },
                 "COMPONENTS":{
@@ -322,7 +322,7 @@ class ResultGraphic:
                     "TYPE":lcase_type,
                     "NAME":lcase_name,
                     "MINMAX" : lcase_minmax,
-                    "STEP_INDEX": 1,
+                    "STEP_INDEX": 2,
                     "TH_OPTION": th_option
                 },
                 "COMPONENTS":{
@@ -366,7 +366,7 @@ class ResultGraphic:
                     "TYPE":lcase_type,
                     "NAME":lcase_name,
                     "MINMAX" : lcase_minmax,
-                    "STEP_INDEX": 1
+                    "STEP_INDEX": 2
                 },
                 "COMPONENTS":{
                     "COMP":component,
@@ -402,7 +402,7 @@ class ResultGraphic:
                     "TYPE":lcase_type,
                     "NAME":lcase_name,
                     "MINMAX" : lcase_minmax,
-                    "STEP_INDEX": 1,
+                    "STEP_INDEX": 2,
                     "TH_OPTION": th_option
                 },
                 "COMPONENTS":{
@@ -443,7 +443,7 @@ class ResultGraphic:
                 "TYPE": lcase_type,
                 "MINMAX": lcase_minmax,
                 "NAME": lcase_name,
-                "STEP_INDEX": 1
+                "STEP_INDEX": 2
             },
             "COMPONENTS": {
                 "PART": part,
@@ -683,7 +683,7 @@ class ResultGraphic:
                 "TYPE": lcase_type,
                 "MINMAX": lcase_minmax,
                 "NAME": lcase_name,
-                "STEP_INDEX": 1
+                "STEP_INDEX": 2
             },
             "OPTIONS": {
                 "LOCAL_UCS": {
@@ -723,7 +723,7 @@ class ResultGraphic:
             "LOAD_CASE_COMB": {
                 "TYPE": lcase_type,
                 "NAME": lcase_name,
-                "STEP_INDEX": 1
+                "STEP_INDEX": 2
             },
             "COMPONENTS": {
                 "COMP": component
@@ -771,7 +771,7 @@ class ResultGraphic:
             "LOAD_CASE_COMB": {
                 "TYPE": lcase_type,
                 "NAME": lcase_name,
-                "STEP_INDEX": 1
+                "STEP_INDEX": 2
             },
             "COMPONENTS": components_json,
             "TYPE_OF_DISPLAY": {
@@ -819,7 +819,7 @@ class ResultGraphic:
             "LOAD_CASE_COMB": {
                 "TYPE": lcase_type,
                 "NAME": lcase_name,
-                "STEP_INDEX": 1
+                "STEP_INDEX": 2
             },
             "COMPONENTS": components_json,
             "DISPLAY_OPTIONS": {
