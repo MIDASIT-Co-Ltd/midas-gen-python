@@ -1,4 +1,4 @@
-from ._mapi import MidasAPI
+from ._mapi import MidasAPI , NX
 # from ._model import *
 
 from typing import Literal
@@ -11,7 +11,7 @@ _type = Literal["Add","Envelope","ABS","SRSS"]
 
 #28 Class to generate load combinations
 class LoadCombination:
-    data = []
+    data:list['LoadCombination'] = []
     valid = ["General", "Steel", "Concrete", "SRC", "Composite Steel Girder", "Seismic", "All"]
     com_map = {
             "General": "/db/LCOM-GEN",
@@ -133,7 +133,10 @@ class LoadCombination:
                     for j in range(len(a)):
                         b += str(a[j]) + ","
                     if b != "": b = "/" + b[:-1]
+                    _current_dispWarning = NX.dispWarning
+                    NX.dispWarning = False
                     MidasAPI("DELETE", LoadCombination.com_map.get(i) + b)     #Delete existing combination if any
+                    NX.dispWarning = _current_dispWarning
                     MidasAPI("PUT", LoadCombination.com_map.get(i), json[i])   #Create new combination
     
     @classmethod

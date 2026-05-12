@@ -1,4 +1,3 @@
-
 from ._mapi import MidasAPI
 
 # ----------------------------------------------------------------------------------------------------------------
@@ -13,28 +12,37 @@ class MovingLoad:
 
     @classmethod
     def create(cls):
+        if cls.LineLane.lanes:
+            cls.LineLane.create()
+        
+        # Assuming Vehicle and Case classes exist elsewhere or will be added later
+        if hasattr(cls, 'Vehicle') and cls.Vehicle.vehicles:
+            cls.Vehicle.create()
             
-            if cls.LineLane.lanes:
-                cls.LineLane.create()
-            
-            # Assuming Vehicle and Case classes exist elsewhere or will be added later
-            if hasattr(cls, 'Vehicle') and cls.Vehicle.vehicles:
-                cls.Vehicle.create()
-                
-            if hasattr(cls, 'Case') and cls.Case.cases:
-                cls.Case.create()
+        if hasattr(cls, 'Case') and cls.Case.cases:
+            cls.Case.create()
 
     @classmethod
     def delete(cls):
-            cls.Code.delete()
+        cls.LineLane.clear()
+        cls.Vehicle.clear()
+        cls.Case.clear()
+        cls.Code.delete()
+        
+    
+    @classmethod
+    def clear(cls):
+        cls.LineLane.clear()
+        cls.Vehicle.clear()
+        cls.Case.clear()
 
     @classmethod
     def sync(cls):
-            cls.LineLane.sync()
-            if hasattr(cls, 'Vehicle'):
-                cls.Vehicle.sync()
-            if hasattr(cls, 'Case'):
-                cls.Case.sync()
+        cls.LineLane.sync()
+        if hasattr(cls, 'Vehicle'):
+            cls.Vehicle.sync()
+        if hasattr(cls, 'Case'):
+            cls.Case.sync()
 
     
     class Code:
@@ -78,531 +86,539 @@ class MovingLoad:
             return MidasAPI("DELETE", "/db/mvcd")
 
     class LineLane:
-    
-        lanes = []
         
-        def __init__(
-            self,
-            code: str,
-            Lane_name: str,
-            Ecc: float,
-            Wheel_space: float,
-            elem_list: list[int],
-            IF: float = 0,
-            Span: float = 0,
-            id: int = None,
-            width: float = 0,
-            opt_width: float = 0,
-            Group_Name: str = "",
-            Moving_Direction: str = "BOTH",
-            Skew_start: float = 0,
-            Skew_end: float = 0
-        ):
-            """
-                code (str): Country code for traffic lane standards (e.g., "INDIA", "CHINA").
-                Lane_name (str): A unique name for the lane.
-                Ecc (float): Lateral eccentricity of the lane's centerline from the reference element path.
-                               A positive value indicates an offset in the +Y direction of the element's local axis.
-                Wheel_space (float): The center-to-center distance between the wheels of the vehicle.
-                                     (e.g., a standard value is often around 1.8m or 6ft).
-                elem_list (list[int]): A list of element IDs defining the continuous path of the lane.
-                IF (float, optional): Impact Factor or Scale Factor, as defined by the selected design code. Defaults to 0.(For LRFD code Add Centerifugal force Input)
-                Span (float, optional): The span length of the lane, used by some codes for impact factor calculation. Defaults to 0.
-                id (int, optional): A unique integer ID for the lane. If None, it will be auto-assigned. Defaults to None.
-                width (float, optional): The width of the traffic lane. Key name "WIDTH". Defaults to 0.
-                opt_width (float, optional): The allowable width of the traffic lane for auto-positioning. Key name "ALLOW_WIDTH". Defaults to 0.
-                Group_Name (str, optional): The group name for cross-beam load distribution. If provided, distribution is "CROSS". Defaults to "".
-                Moving_Direction (str, optional): The allowed direction of vehicle movement ("FORWARD", "BACKWARD", "BOTH"). Defaults to "BOTH".
-                Skew_start (float, optional): The skew angle of the bridge at the start of the lane (in degrees). Defaults to 0.
-                Skew_end (float, optional): The skew angle of the bridge at the end of the lane (in degrees). Defaults to 0.
-            """
-            self.code = code
-            self.Lane_name = Lane_name
-            self.Ecc = Ecc
-            self.Wheel_space = Wheel_space
-            self.elem_list = elem_list
-            self.IF = IF
-            self.Span = Span
-            self.id = len(MovingLoad.LineLane.lanes) + 1 if id is None else id
-            self.width = width
-            self.opt_width = opt_width
-            self.Group_Name = Group_Name
-            self.Moving_Direction = Moving_Direction
-            self.Skew_start = Skew_start
-            self.Skew_end = Skew_end
+            lanes = []
             
-            # Ensure the correct moving load code is active in the model
-            MovingLoad.Code(code)
-            
-            # Avoid duplicating lanes if syncing
-            if not any(lane.id == self.id for lane in MovingLoad.LineLane.lanes):
-                MovingLoad.LineLane.lanes.append(self)
-
-        # Definition of country-specific subclasses
-        class India:
-            def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
-                        IF: float = 0, Span: float = 0, id: int = None,
-                        width: float = 0, opt_width: float = 0, Group_Name: str = "", Moving_Direction: str = "BOTH",
-                        Skew_start: float = 0, Skew_end: float = 0):
-                """Defines a traffic lane according to Indian standards."""
-                MovingLoad.LineLane("INDIA", Lane_name, Ecc, Wheel_space, elem_list,
-                                    IF, Span, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
-
-        class China:
-            def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
-                        IF: float = 0, Span: float = 0, id: int = None,
-                        width: float = 0, opt_width: float = 0, Group_Name: str = "", Moving_Direction: str = "BOTH",
-                        Skew_start: float = 0, Skew_end: float = 0):
-                """Defines a traffic lane according to Chinese standards."""
-                MovingLoad.LineLane("CHINA", Lane_name, Ecc, Wheel_space, elem_list,
-                                    IF, Span, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
-
-        class Korea:
-            def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
-                        IF: float = 0, id: int = None, opt_width: float = 0,
-                        Group_Name: str = "", Moving_Direction: str = "BOTH",
-                        Skew_start: float = 0, Skew_end: float = 0):
-                """Defines a traffic lane according to Korean standards."""
-                MovingLoad.LineLane("KOREA", Lane_name, Ecc, Wheel_space, elem_list,
-                                    IF, 0, id, 3, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
-        
-        class Taiwan:
-            def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
-                        IF: float = 0, id: int = None, width: float = 0, opt_width: float = 0,
-                        Group_Name: str = "", Moving_Direction: str = "BOTH",
-                        Skew_start: float = 0, Skew_end: float = 0):
-                """Defines a traffic lane according to Taiwanese standards."""
-                MovingLoad.LineLane("TAIWAN", Lane_name, Ecc, Wheel_space, elem_list,
-                                    IF, 0, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
-
-        class AASHTOStandard:
-            def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
-                        IF: float = 0, id: int = None, opt_width: float = 0,
-                        Group_Name: str = "", Moving_Direction: str = "BOTH",
-                        Skew_start: float = 0, Skew_end: float = 0):
-                """Defines a traffic lane according to AASHTO Standard."""
-                MovingLoad.LineLane("AASHTO STANDARD", Lane_name, Ecc, Wheel_space, elem_list,
-                                    IF, 0, id, 3, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
-
-        class AASHTOLRFD:
-            def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
-                        IF: float = 0, id: int = None, opt_width: float = 0,
-                        Group_Name: str = "", Moving_Direction: str = "BOTH",
-                        Skew_start: float = 0, Skew_end: float = 0):
-                """Defines a traffic lane according to AASHTO LRFD."""
-                MovingLoad.LineLane("AASHTO LRFD", Lane_name, Ecc, Wheel_space, elem_list,
-                                    IF, 0, id, 3, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
-
-        class PENNDOT:
-            def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
-                        id: int = None, opt_width: float = 0,
-                        Group_Name: str = "", Moving_Direction: str = "BOTH",
-                        Skew_start: float = 0, Skew_end: float = 0):
-                """Defines a traffic lane according to AASHTO LRFD (PENNDOT)."""
-                MovingLoad.LineLane("AASHTO LRFD(PENDOT)", Lane_name, Ecc, Wheel_space, elem_list,
-                                    0, 0, id, 3, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
-
-        class Canada:
-            def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
-                        id: int = None, opt_width: float = 0,
-                        Group_Name: str = "", Moving_Direction: str = "BOTH",
-                        Skew_start: float = 0, Skew_end: float = 0):
-                """Defines a traffic lane according to Canadian standards."""
-                MovingLoad.LineLane("CANADA", Lane_name, Ecc, Wheel_space, elem_list,
-                                    0, 0, id, 3, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
-
-        class BS:
-            def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
-                        id: int = None, width: float = 0, opt_width: float = 0,
-                        Group_Name: str = "", Moving_Direction: str = "BOTH",
-                        Skew_start: float = 0, Skew_end: float = 0):
-                """Defines a traffic lane according to British Standards (BS)."""
-                MovingLoad.LineLane("BS", Lane_name, Ecc, Wheel_space, elem_list,
-                                    0, 0, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
-
-        class Eurocode:
-            def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
-                        IF: float = 0, id: int = None, width: float = 0, opt_width: float = 0,
-                        Group_Name: str = "", Moving_Direction: str = "BOTH",
-                        Skew_start: float = 0, Skew_end: float = 0):
-                """Defines a traffic lane according to Eurocode."""
-                MovingLoad.LineLane("EUROCODE", Lane_name, Ecc, Wheel_space, elem_list,
-                                    IF, 0, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
-
-        class Australia:
-            def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
-                        id: int = None, width: float = 0, opt_width: float = 0,
-                        Group_Name: str = "", Moving_Direction: str = "BOTH",
-                        Skew_start: float = 0, Skew_end: float = 0):
-                """Defines a traffic lane according to Australian standards."""
-                MovingLoad.LineLane("AUSTRALIA", Lane_name, Ecc, Wheel_space, elem_list,
-                                    0, 0, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
-
-        class Poland:
-            def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
-                        id: int = None, width: float = 0, opt_width: float = 0,
-                        Group_Name: str = "", Moving_Direction: str = "BOTH",
-                        Skew_start: float = 0, Skew_end: float = 0):
-                """Defines a traffic lane according to Polish standards."""
-                MovingLoad.LineLane("POLAND", Lane_name, Ecc, Wheel_space, elem_list,
-                                    0, 0, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
-
-        class Russia:
-            def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
-                        id: int = None, width: float = 0, opt_width: float = 0,
-                        Group_Name: str = "", Moving_Direction: str = "BOTH",
-                        Skew_start: float = 0, Skew_end: float = 0):
-                """Defines a traffic lane according to Russian standards."""
-                MovingLoad.LineLane("RUSSIA", Lane_name, Ecc, Wheel_space, elem_list,
-                                    0, 0, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
-
-        class SouthAfrica:
-            def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
-                        id: int = None, width: float = 0, opt_width: float = 0,
-                        Group_Name: str = "", Moving_Direction: str = "BOTH",
-                        Skew_start: float = 0, Skew_end: float = 0):
-                """Defines a traffic lane according to South African standards."""
-                MovingLoad.LineLane("SOUTH AFRICA", Lane_name, Ecc, Wheel_space, elem_list,
-                                    0, 0, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
-
-        class KSCELSD15:
-            def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
-                        id: int = None, opt_width: float = 0,
-                        Group_Name: str = "", Moving_Direction: str = "BOTH",
-                        Skew_start: float = 0, Skew_end: float = 0):
-                """Defines a traffic lane according to KSCE-LSD15."""
-                MovingLoad.LineLane("KSCE-LSD15", Lane_name, Ecc, Wheel_space, elem_list,
-                                    0, 0, id, 3, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
-
-        @staticmethod
-        def _get_lane_item_details(code, lane, is_start_span):
-            """
-            Internal helper to get code-specific keys for a LANE_ITEM.
-            This centralizes the logic for different country standards.
-            """
-            details = {}
-            if code == "INDIA":
-                details = {
-                    "SPAN": lane.Span,
-                    "IMPACT_SPAN": 1 if lane.Span > 0 else 0,
-                    "IMPACT_FACTOR": lane.IF
-                }
-            elif code == "CHINA":
-                details = {
-                    "SPAN": lane.Span,
-                    "SPAN_START": is_start_span,
-                    "SCALE_FACTOR": lane.IF
-                }
-            elif code in ["KOREA", "TAIWAN", "AASHTO STANDARD"]:
-                details = {
-                    "FACT": lane.IF,
-                    "SPAN_START": is_start_span
-                }
-            elif code in ["AASHTO LRFD(PENDOT)", "AUSTRALIA", "POLAND"]:
-                details = {
-                    "SPAN_START": is_start_span
-                }
-            elif code == "AASHTO LRFD":
-                details = {
-                    "CENT_F": lane.IF,
-                    "SPAN_START": is_start_span
-                }
-            elif code == "EUROCODE":
-                details = {
-                    "ECCEN_VERT_LOAD": lane.IF
-                }
-            # Codes like "KSCE-LSD15", "BS", "CANADA" etc., don't need extra keys
-            
-            return details
-
-        @classmethod
-        def json(cls, lanes_list=None):
-            """
-            Generates the JSON 
-            """
-            if lanes_list is None:
-                lanes_list = cls.lanes
-
-            data = {"Assign": {}}
-            for lane in lanes_list:
-                # Use the user-provided list directly
-                E_list = lane.elem_list
-                Load_Dist = "CROSS" if lane.Group_Name else "LANE"
-                opt_auto_lane = lane.opt_width > 0
-
-                common_data = {
-                    "LL_NAME": lane.Lane_name,
-                    "LOAD_DIST": Load_Dist,
-                    "GROUP_NAME": lane.Group_Name if Load_Dist == "CROSS" else "",
-                    "SKEW_START": lane.Skew_start,
-                    "SKEW_END": lane.Skew_end,
-                    "MOVING": lane.Moving_Direction,
-                    "WHEEL_SPACE": lane.Wheel_space,
-                    "WIDTH": lane.width,
-                    "OPT_AUTO_LANE": opt_auto_lane,
-                    "ALLOW_WIDTH": lane.opt_width
-                }
-
-                lane_items = []
-                for i, e in enumerate(E_list):
-                    is_start_span = (i == 0)
-                    # Get code-specific details from the helper function
-                    item_details = cls._get_lane_item_details(lane.code, lane, is_start_span)
-                    
-                    # Start with the base item
-                    lane_item = {"ELEM": e, "ECC": lane.Ecc}
-                    # Add the code-specific details
-                    lane_item.update(item_details)
-                    lane_items.append(lane_item)
-
-                data["Assign"][str(lane.id)] = {
-                    "COMMON": common_data,
-                    "LANE_ITEMS": lane_items
-                }
-            return data
-        
-        @classmethod
-        def create(cls):
-            """Sends all defined traffic lane data to the MIDAS GEN NX API """
-            if not cls.lanes:
-                print("No lanes to create.")
-                return
-            
-            # Group lanes by their country code to use the correct API endpoint
-            lanes_by_code = {"INDIA": [], "CHINA": [], "OTHER": []}
-            for lane in cls.lanes:
-                if lane.code == "INDIA":
-                    lanes_by_code["INDIA"].append(lane)
-                elif lane.code == "CHINA":
-                    lanes_by_code["CHINA"].append(lane)
-                else:
-                    lanes_by_code["OTHER"].append(lane)
-            
-            # Create JSON and send data for each group
-            if lanes_by_code["INDIA"]:
-                india_data = cls.json(lanes_by_code["INDIA"])
-                MidasAPI("PUT", "/db/llanid", india_data)
-            
-            if lanes_by_code["CHINA"]:
-                china_data = cls.json(lanes_by_code["CHINA"])
-                MidasAPI("PUT", "/db/llanch", china_data)
-            
-            if lanes_by_code["OTHER"]:
-                other_data = cls.json(lanes_by_code["OTHER"])
-                MidasAPI("PUT", "/db/llan", other_data)
-
-        @classmethod
-        def get(cls):
-            """Retrieves lane data from the Midas model based on the current active code.
-            Returns pure JSON output like {"LLAN": {...}} or {"LLANID": {...}} or {"LLANCH": {...}}"""
-            
-            # First get the current active code
-            try:
-                code_response = MovingLoad.Code.get()
-                if not code_response or 'MVCD' not in code_response:
-                    print("Warning: No moving load code found in model.")
-                    return {}
+            def __init__(
+                self,
+                code: str,
+                Lane_name: str,
+                Ecc: float,
+                Wheel_space: float,
+                elem_list: list[int],
+                IF: float = 0,
+                Span: float = 0,
+                id: int = None,
+                width: float = 0,
+                opt_width: float = 0,
+                Group_Name: str = "",
+                Moving_Direction: str = "BOTH",
+                Skew_start: float = 0,
+                Skew_end: float = 0
+            ):
+                """
+                    code (str): Country code for traffic lane standards (e.g., "INDIA", "CHINA").
+                    Lane_name (str): A unique name for the lane.
+                    Ecc (float): Lateral eccentricity of the lane's centerline from the reference element path.
+                                A positive value indicates an offset in the +Y direction of the element's local axis.
+                    Wheel_space (float): The center-to-center distance between the wheels of the vehicle.
+                                        (e.g., a standard value is often around 1.8m or 6ft).
+                    elem_list (list[int]): A list of element IDs defining the continuous path of the lane.
+                    IF (float, optional): Impact Factor or Scale Factor, as defined by the selected design code. Defaults to 0.(For LRFD code Add Centerifugal force Input)
+                    Span (float, optional): The span length of the lane, used by some codes for impact factor calculation. Defaults to 0.
+                    id (int, optional): A unique integer ID for the lane. If None, it will be auto-assigned. Defaults to None.
+                    width (float, optional): The width of the traffic lane. Key name "WIDTH". Defaults to 0.
+                    opt_width (float, optional): The allowable width of the traffic lane for auto-positioning. Key name "ALLOW_WIDTH". Defaults to 0.
+                    Group_Name (str, optional): The group name for cross-beam load distribution. If provided, distribution is "CROSS". Defaults to "".
+                    Moving_Direction (str, optional): The allowed direction of vehicle movement ("FORWARD", "BACKWARD", "BOTH"). Defaults to "BOTH".
+                    Skew_start (float, optional): The skew angle of the bridge at the start of the lane (in degrees). Defaults to 0.
+                    Skew_end (float, optional): The skew angle of the bridge at the end of the lane (in degrees). Defaults to 0.
+                """
+                self.code = code
+                self.Lane_name = Lane_name
+                self.Ecc = Ecc
+                self.Wheel_space = Wheel_space
+                self.elem_list = elem_list
+                self.IF = IF
+                self.Span = Span
+                self.id = len(MovingLoad.LineLane.lanes) + 1 if id is None else id
+                self.width = width
+                self.opt_width = opt_width
+                self.Group_Name = Group_Name
+                self.Moving_Direction = Moving_Direction
+                self.Skew_start = Skew_start
+                self.Skew_end = Skew_end
                 
-                # Extract the active code name
-                current_code = None
-                mvcd_data = code_response.get('MVCD', {})
-                for code_id, code_info in mvcd_data.items():
-                    if isinstance(code_info, dict) and 'CODE' in code_info:
-                        current_code = code_info['CODE']
-                        break
+                # Ensure the correct moving load code is active in the model
+                MovingLoad.Code(code)
                 
-                if not current_code:
-                    print("Warning: Could not determine active moving load code.")
-                    return {}
-                    
-            except Exception as e:
-                print(f"Error getting current code: {e}")
-                return {}
-            
-            # Based on the code, use the appropriate endpoint
-            if current_code == "INDIA":
-                return MidasAPI("GET", "/db/llanid")
-            elif current_code == "CHINA":
-                return MidasAPI("GET", "/db/llanch")
-            else:
-                return MidasAPI("GET", "/db/llan")
+                # Avoid duplicating lanes if syncing
+                if not any(lane.id == self.id for lane in MovingLoad.LineLane.lanes):
+                    MovingLoad.LineLane.lanes.append(self)
 
-        @classmethod
-        def delete(cls):
-            """Deletes all traffic lanes from the Midas model using simple deletion."""
+            # Definition of country-specific subclasses
+            class India:
+                def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
+                            IF: float = 0, Span: float = 0, id: int = None,
+                            width: float = 0, opt_width: float = 0, Group_Name: str = "", Moving_Direction: str = "BOTH",
+                            Skew_start: float = 0, Skew_end: float = 0):
+                    """Defines a traffic lane according to Indian standards."""
+                    MovingLoad.LineLane("INDIA", Lane_name, Ecc, Wheel_space, elem_list,
+                                        IF, Span, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
+
+            class China:
+                def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
+                            IF: float = 0, Span: float = 0, id: int = None,
+                            opt_width: float = 0, Group_Name: str = "", Moving_Direction: str = "BOTH",
+                            Skew_start: float = 0, Skew_end: float = 0):
+                    """Defines a traffic lane according to Chinese standards."""
+                    MovingLoad.LineLane("CHINA", Lane_name, Ecc, Wheel_space, elem_list,
+                                        IF, Span, id, 0, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
+
+            class Korea:
+                def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
+                            IF: float = 0, id: int = None, opt_width: float = 0,
+                            Group_Name: str = "", Moving_Direction: str = "BOTH",
+                            Skew_start: float = 0, Skew_end: float = 0):
+                    """Defines a traffic lane according to Korean standards."""
+                    MovingLoad.LineLane("KOREA", Lane_name, Ecc, Wheel_space, elem_list,
+                                        IF, 0, id, 3, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
             
-            # Get the current active code to determine endpoint
-            try:
-                code_response = MovingLoad.Code.get()
-                if not code_response or 'MVCD' not in code_response:
-                    print("Warning: No moving load code found in model.")
+            class Taiwan:
+                def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
+                            IF: float = 0, id: int = None, opt_width: float = 0,
+                            Group_Name: str = "", Moving_Direction: str = "BOTH",
+                            Skew_start: float = 0, Skew_end: float = 0):
+                    """Defines a traffic lane according to Taiwanese standards."""
+                    MovingLoad.LineLane("TAIWAN", Lane_name, Ecc, Wheel_space, elem_list,
+                                        IF, 0, id, 3, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
+
+            class AASHTOStandard:
+                def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
+                            IF: float = 0, id: int = None, opt_width: float = 0,
+                            Group_Name: str = "", Moving_Direction: str = "BOTH",
+                            Skew_start: float = 0, Skew_end: float = 0):
+                    """Defines a traffic lane according to AASHTO Standard."""
+                    MovingLoad.LineLane("AASHTO STANDARD", Lane_name, Ecc, Wheel_space, elem_list,
+                                        IF, 0, id, 3, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
+
+            class AASHTOLRFD:
+                def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
+                            centrifugal_force: float = 0, id: int = None, opt_width: float = 0,
+                            Group_Name: str = "", Moving_Direction: str = "BOTH",
+                            Skew_start: float = 0, Skew_end: float = 0):
+                    """Defines a traffic lane according to AASHTO LRFD."""
+                    MovingLoad.LineLane("AASHTO LRFD", Lane_name, Ecc, Wheel_space, elem_list,
+                                        centrifugal_force, 0, id, 3, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
+
+            class PENNDOT:
+                def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
+                            id: int = None, opt_width: float = 0,
+                            Group_Name: str = "", Moving_Direction: str = "BOTH",
+                            Skew_start: float = 0, Skew_end: float = 0):
+                    """Defines a traffic lane according to AASHTO LRFD (PENNDOT)."""
+                    MovingLoad.LineLane("AASHTO LRFD(PENDOT)", Lane_name, Ecc, Wheel_space, elem_list,
+                                        0, 0, id, 3, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
+
+            class Canada:
+                def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
+                            id: int = None, opt_width: float = 0,
+                            Group_Name: str = "", Moving_Direction: str = "BOTH",
+                            Skew_start: float = 0, Skew_end: float = 0):
+                    """Defines a traffic lane according to Canadian standards."""
+                    MovingLoad.LineLane("CANADA", Lane_name, Ecc, Wheel_space, elem_list,
+                                        0, 0, id, 3, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
+
+            class BS:
+                def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
+                            id: int = None, width: float = 0, opt_width: float = 0,
+                            Group_Name: str = "", Moving_Direction: str = "BOTH",
+                            Skew_start: float = 0, Skew_end: float = 0):
+                    """Defines a traffic lane according to British Standards (BS)."""
+                    MovingLoad.LineLane("BS", Lane_name, Ecc, Wheel_space, elem_list,
+                                        0, 0, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
+
+            class Eurocode:
+                def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
+                            ecc_vertical_load: float = 0, id: int = None, width: float = 0, opt_width: float = 0,
+                            Group_Name: str = "", Moving_Direction: str = "BOTH",
+                            Skew_start: float = 0, Skew_end: float = 0):
+                    """Defines a traffic lane according to Eurocode."""
+                    MovingLoad.LineLane("EUROCODE", Lane_name, Ecc, Wheel_space, elem_list,
+                                        ecc_vertical_load, 0, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
+
+            class Australia:
+                def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
+                            id: int = None, width: float = 0, opt_width: float = 0,
+                            Group_Name: str = "", Moving_Direction: str = "BOTH",
+                            Skew_start: float = 0, Skew_end: float = 0):
+                    """Defines a traffic lane according to Australian standards."""
+                    MovingLoad.LineLane("AUSTRALIA", Lane_name, Ecc, Wheel_space, elem_list,
+                                        0, 0, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
+
+            class Poland:
+                def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
+                            id: int = None, width: float = 0, opt_width: float = 0,
+                            Group_Name: str = "", Moving_Direction: str = "BOTH",
+                            Skew_start: float = 0, Skew_end: float = 0):
+                    """Defines a traffic lane according to Polish standards."""
+                    MovingLoad.LineLane("POLAND", Lane_name, Ecc, Wheel_space, elem_list,
+                                        0, 0, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
+
+            class Russia:
+                def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
+                            id: int = None, width: float = 0, opt_width: float = 0,
+                            Group_Name: str = "", Moving_Direction: str = "BOTH",
+                            Skew_start: float = 0, Skew_end: float = 0):
+                    """Defines a traffic lane according to Russian standards."""
+                    MovingLoad.LineLane("RUSSIA", Lane_name, Ecc, Wheel_space, elem_list,
+                                        0, 0, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
+
+            class SouthAfrica:
+                def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
+                            id: int = None, width: float = 0, opt_width: float = 0,
+                            Group_Name: str = "", Moving_Direction: str = "BOTH",
+                            Skew_start: float = 0, Skew_end: float = 0):
+                    """Defines a traffic lane according to South African standards."""
+                    MovingLoad.LineLane("SOUTH AFRICA", Lane_name, Ecc, Wheel_space, elem_list,
+                                        0, 0, id, width, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
+
+            class KSCELSD15:
+                def __init__(self, Lane_name: str, Ecc: float, Wheel_space: float, elem_list: list[int], 
+                            id: int = None, opt_width: float = 0,
+                            Group_Name: str = "", Moving_Direction: str = "BOTH",
+                            Skew_start: float = 0, Skew_end: float = 0):
+                    """Defines a traffic lane according to KSCE-LSD15."""
+                    MovingLoad.LineLane("KSCE-LSD15", Lane_name, Ecc, Wheel_space, elem_list,
+                                        0, 0, id, 3, opt_width, Group_Name, Moving_Direction, Skew_start, Skew_end)
+
+            @staticmethod
+            def _get_lane_item_details(code, lane, is_start_span):
+                """
+                Internal helper to get code-specific keys for a LANE_ITEM.
+                This centralizes the logic for different country standards.
+                """
+                details = {}
+                if code == "INDIA":
+                    details = {
+                        "SPAN": lane.Span,
+                        "IMPACT_SPAN": 1 if lane.Span > 0 else 0,
+                        "IMPACT_FACTOR": lane.IF
+                    }
+                elif code == "CHINA":
+                    details = {
+                        "SPAN": lane.Span,
+                        "SPAN_START": is_start_span,
+                        "SCALE_FACTOR": lane.IF
+                    }
+                elif code in ["KOREA", "TAIWAN", "AASHTO STANDARD"]:
+                    details = {
+                        "FACT": lane.IF,
+                        "SPAN_START": is_start_span
+                    }
+                elif code in ["AASHTO LRFD(PENDOT)", "AUSTRALIA", "POLAND"]:
+                    details = {
+                        "SPAN_START": is_start_span
+                    }
+                elif code == "AASHTO LRFD":
+                    details = {
+                        "CENT_F": lane.IF,
+                        "SPAN_START": is_start_span
+                    }
+                elif code == "EUROCODE":
+                    details = {
+                        "ECCEN_VERT_LOAD": lane.IF
+                    }
+                # Codes like "KSCE-LSD15", "BS", "CANADA" etc., don't need extra keys
+                
+                return details
+
+            @classmethod
+            def json(cls, lanes_list=None):
+                """
+                Generates the JSON 
+                """
+                if lanes_list is None:
+                    lanes_list = cls.lanes
+
+                data = {"Assign": {}}
+                for lane in lanes_list:
+                    # Use the user-provided list directly
+                    E_list = lane.elem_list
+                    Load_Dist = "CROSS" if lane.Group_Name else "LANE"
+                    opt_auto_lane = lane.opt_width > 0
+
+                    common_data = {
+                        "LL_NAME": lane.Lane_name,
+                        "LOAD_DIST": Load_Dist,
+                        "GROUP_NAME": lane.Group_Name if Load_Dist == "CROSS" else "",
+                        "SKEW_START": lane.Skew_start,
+                        "SKEW_END": lane.Skew_end,
+                        "MOVING": lane.Moving_Direction,
+                        "WHEEL_SPACE": lane.Wheel_space,
+                        "WIDTH": lane.width,
+                        "OPT_AUTO_LANE": opt_auto_lane,
+                        "ALLOW_WIDTH": lane.opt_width
+                    }
+                    
+                    # Removing WIDTH input if code is CHINA
+                    if lane.code == "CHINA":
+                        common_data.pop("WIDTH", None)
+
+                    lane_items = []
+                    for i, e in enumerate(E_list):
+                        is_start_span = (i == 0)
+                        # Get code-specific details from the helper function
+                        item_details = cls._get_lane_item_details(lane.code, lane, is_start_span)
+                        
+                        # Start with the base item
+                        lane_item = {"ELEM": e, "ECC": lane.Ecc}
+                        # Add the code-specific details
+                        lane_item.update(item_details)
+                        lane_items.append(lane_item)
+
+                    data["Assign"][str(lane.id)] = {
+                        "COMMON": common_data,
+                        "LANE_ITEMS": lane_items
+                    }
+                return data
+            
+            @classmethod
+            def create(cls):
+                """Sends all defined traffic lane data to MIDAS GEN NX """
+                if not cls.lanes:
+                    print("No lanes to create.")
                     return
                 
-                current_code = None
-                mvcd_data = code_response.get('MVCD', {})
-                for code_id, code_info in mvcd_data.items():
-                    if isinstance(code_info, dict) and 'CODE' in code_info:
-                        current_code = code_info['CODE']
-                        break
+                # Group lanes by their country code to use the correct API endpoint
+                lanes_by_code = {"INDIA": [], "CHINA": [], "OTHER": []}
+                for lane in cls.lanes:
+                    if lane.code == "INDIA":
+                        lanes_by_code["INDIA"].append(lane)
+                    elif lane.code == "CHINA":
+                        lanes_by_code["CHINA"].append(lane)
+                    else:
+                        lanes_by_code["OTHER"].append(lane)
                 
-                if not current_code:
-                    print("Warning: Could not determine active moving load code.")
-                    return
-                    
-            except Exception as e:
-                print(f"Error getting current code: {e}")
-                return
-            
-            # Get lane data based on current code
-            api_data = cls.get()
-            if not api_data:
-                print("No lanes found in the model. Nothing to delete.")
-                return
-            
-            # Determine the response key based on current code
-            if current_code == "INDIA":
-                response_key = "LLANID"
-                endpoint = "/db/llanid"
-            elif current_code == "CHINA":
-                response_key = "LLANCH"
-                endpoint = "/db/llanch"
-            else:
-                response_key = "LLAN"
-                endpoint = "/db/llan"
-            
-            # Extract lane IDs
-            if response_key not in api_data:
-                print("No lanes found in the model. Nothing to delete.")
-                return
-            
-            lane_ids = [int(id_str) for id_str in api_data[response_key].keys()]
-            
-            if not lane_ids:
-                print("No target lanes to delete.")
-                return
-            
-            # Simple deletion
-            MidasAPI("DELETE", endpoint, {"Remove": lane_ids})
-            
-        @classmethod
-        def sync(cls):
-            """
-            Synchronizes the lane data from the Midas model 
-            """
-            # Clear existing lanes
-            cls.lanes = []
-            
-            # Get the current active code from the model
-            try:
-                code_response = MovingLoad.Code.get()
-                if not code_response or 'MVCD' not in code_response:
-                    print("Warning: No moving load code found in model. Cannot sync lanes.")
-                    return
+                # Create JSON and send data for each group
+                if lanes_by_code["INDIA"]:
+                    india_data = cls.json(lanes_by_code["INDIA"])
+                    MidasAPI("PUT", "/db/llanid", india_data)
                 
-                # Extract the active code name
-                current_code = None
-                mvcd_data = code_response.get('MVCD', {})
-                for code_id, code_info in mvcd_data.items():
-                    if isinstance(code_info, dict) and 'CODE' in code_info:
-                        current_code = code_info['CODE']
-                        break
+                if lanes_by_code["CHINA"]:
+                    china_data = cls.json(lanes_by_code["CHINA"])
+                    MidasAPI("PUT", "/db/llanch", china_data)
                 
-                if not current_code:
-                    print("Warning: Could not determine active moving load code. Cannot sync lanes.")
-                    return
-                    
-            except Exception as e:
-                print(f"Error getting current code: {e}")
-                return
-            
-            # Get lane data using the new get method
-            response = cls.get()
-            
-            if not response:
-                print("No lane data found in model to sync.")
-                return
-            
-            # Determine the response key based on current code
-            if current_code == "INDIA":
-                response_key = "LLANID"
-            elif current_code == "CHINA":
-                response_key = "LLANCH"
-            else:
-                response_key = "LLAN"
-            
-            # Extract lane data from the response
-            all_lanes_data = response.get(response_key, {})
-            
-            if not all_lanes_data:
-                print("No lane data found in model to sync.")
-                return
+                if lanes_by_code["OTHER"]:
+                    other_data = cls.json(lanes_by_code["OTHER"])
+                    MidasAPI("PUT", "/db/llan", other_data)
 
-            # Process each lane from the model
-            for lane_id, lane_data in all_lanes_data.items():
-                common = lane_data.get("COMMON", {})
-                items = lane_data.get("LANE_ITEMS", [])
+            @classmethod
+            def get(cls):
+                """Retrieves lane data from the Midas model based on the current active code.
+                Returns pure JSON output like {"LLAN": {...}} or {"LLANID": {...}} or {"LLANCH": {...}}"""
                 
-                if not common or not items:
-                    continue
-
-                # Extract element list directly
-                element_ids = [item['ELEM'] for item in items]
-                if not element_ids:
-                    continue
-                
-                # Extract common properties
-                lane_name = common.get("LL_NAME", f"Lane_{lane_id}")
-                ecc = items[0].get("ECC", 0) if items else 0
-                wheel_space = common.get("WHEEL_SPACE", 0)
-                width = common.get("WIDTH", 0)
-                opt_width = common.get("ALLOW_WIDTH", 0)
-                group_name = common.get("GROUP_NAME", "")
-                moving_dir = common.get("MOVING", "BOTH")
-                skew_start = common.get("SKEW_START", 0)
-                skew_end = common.get("SKEW_END", 0)
-                
-                # Extract code-specific parameters based on the current active code
-                if_val = 0
-                span_val = 0
-                
-                # Use the first item to extract code-specific parameters
-                first_item = items[0] if items else {}
-                
-                if current_code == "INDIA":
-                    if_val = first_item.get("IMPACT_FACTOR", 0)
-                    span_val = first_item.get("SPAN", 0)
-                elif current_code == "CHINA":
-                    if_val = first_item.get("SCALE_FACTOR", 0)
-                    span_val = first_item.get("SPAN", 0)
-                elif current_code in ["KOREA", "TAIWAN", "AASHTO STANDARD"]:
-                    if_val = first_item.get("FACT", 0)
-                elif current_code == "AASHTO LRFD":
-                    if_val = first_item.get("CENT_F", 0)
-                elif current_code == "EUROCODE":
-                    if_val = first_item.get("ECCEN_VERT_LOAD", 0)
-                
-                # Create the LineLane object with the current active code
+                # First get the current active code
                 try:
-                    lane_obj = MovingLoad.LineLane(
-                        code=current_code,
-                        Lane_name=lane_name,
-                        Ecc=ecc,
-                        Wheel_space=wheel_space,
-                        elem_list=element_ids,
-                        IF=if_val,
-                        Span=span_val,
-                        id=int(lane_id),
-                        width=width,
-                        opt_width=opt_width,
-                        Group_Name=group_name,
-                        Moving_Direction=moving_dir,
-                        Skew_start=skew_start,
-                        Skew_end=skew_end
-                    )
+                    code_response = MovingLoad.Code.get()
+                    if not code_response or 'MVCD' not in code_response:
+                        print("Warning: No moving load code found in model.")
+                        return {}
                     
+                    # Extract the active code name
+                    current_code = None
+                    mvcd_data = code_response.get('MVCD', {})
+                    for code_id, code_info in mvcd_data.items():
+                        if isinstance(code_info, dict) and 'CODE' in code_info:
+                            current_code = code_info['CODE']
+                            break
+                    
+                    if not current_code:
+                        print("Warning: Could not determine active moving load code.")
+                        return {}
+                        
                 except Exception as e:
-                    print(f"Error creating lane {lane_id}: {e}")
-                    continue
+                    print(f"Error getting current code: {e}")
+                    return {}
+                
+                # Based on the code, use the appropriate endpoint
+                if current_code == "INDIA":
+                    return MidasAPI("GET", "/db/llanid")
+                elif current_code == "CHINA":
+                    return MidasAPI("GET", "/db/llanch")
+                else:
+                    return MidasAPI("GET", "/db/llan")
+
+            @classmethod
+            def delete(cls):
+                """Deletes all traffic lanes from the Midas model using simple deletion."""
+                
+                # Get the current active code to determine endpoint
+                try:
+                    code_response = MovingLoad.Code.get()
+                    if not code_response or 'MVCD' not in code_response:
+                        print("Warning: No moving load code found in model.")
+                        return
+                    
+                    current_code = None
+                    mvcd_data = code_response.get('MVCD', {})
+                    for code_id, code_info in mvcd_data.items():
+                        if isinstance(code_info, dict) and 'CODE' in code_info:
+                            current_code = code_info['CODE']
+                            break
+                    
+                    if not current_code:
+                        print("Warning: Could not determine active moving load code.")
+                        return
+                        
+                except Exception as e:
+                    print(f"Error getting current code: {e}")
+                    return
+                
+                # Get lane data based on current code
+                api_data = cls.get()
+                if not api_data:
+                    print("No lanes found in the model. Nothing to delete.")
+                    return
+                
+                # Determine the response key based on current code
+                if current_code == "INDIA":
+                    response_key = "LLANID"
+                    endpoint = "/db/llanid"
+                elif current_code == "CHINA":
+                    response_key = "LLANCH"
+                    endpoint = "/db/llanch"
+                else:
+                    response_key = "LLAN"
+                    endpoint = "/db/llan"
+                
+                # Extract lane IDs
+                if response_key not in api_data:
+                    print("No lanes found in the model. Nothing to delete.")
+                    return
+                
+                lane_ids = [int(id_str) for id_str in api_data[response_key].keys()]
+                
+                if not lane_ids:
+                    print("No target lanes to delete.")
+                    return
+                
+                # Simple deletion
+                MidasAPI("DELETE", endpoint, {"Remove": lane_ids})
+                
+            @classmethod
+            def clear(cls):
+                cls.lanes = []
+
+            @classmethod
+            def sync(cls):
+                """
+                Synchronizes the lane data from the Midas model 
+                """
+                # Clear existing lanes
+                cls.lanes = []
+                
+                # Get the current active code from the model
+                try:
+                    code_response = MovingLoad.Code.get()
+                    if not code_response or 'MVCD' not in code_response:
+                        print("Warning: No moving load code found in model. Cannot sync lanes.")
+                        return
+                    
+                    # Extract the active code name
+                    current_code = None
+                    mvcd_data = code_response.get('MVCD', {})
+                    for code_id, code_info in mvcd_data.items():
+                        if isinstance(code_info, dict) and 'CODE' in code_info:
+                            current_code = code_info['CODE']
+                            break
+                    
+                    if not current_code:
+                        print("Warning: Could not determine active moving load code. Cannot sync lanes.")
+                        return
+                        
+                except Exception as e:
+                    print(f"Error getting current code: {e}")
+                    return
+                
+                # Get lane data using the new get method
+                response = cls.get()
+                
+                if not response:
+                    print("No lane data found in model to sync.")
+                    return
+                
+                # Determine the response key based on current code
+                if current_code == "INDIA":
+                    response_key = "LLANID"
+                elif current_code == "CHINA":
+                    response_key = "LLANCH"
+                else:
+                    response_key = "LLAN"
+                
+                # Extract lane data from the response
+                all_lanes_data = response.get(response_key, {})
+                
+                if not all_lanes_data:
+                    print("No lane data found in model to sync.")
+                    return
+
+                # Process each lane from the model
+                for lane_id, lane_data in all_lanes_data.items():
+                    common = lane_data.get("COMMON", {})
+                    items = lane_data.get("LANE_ITEMS", [])
+                    
+                    if not common or not items:
+                        continue
+
+                    # Extract element list directly
+                    element_ids = [item['ELEM'] for item in items]
+                    if not element_ids:
+                        continue
+                    
+                    # Extract common properties
+                    lane_name = common.get("LL_NAME", f"Lane_{lane_id}")
+                    ecc = items[0].get("ECC", 0) if items else 0
+                    wheel_space = common.get("WHEEL_SPACE", 0)
+                    width = common.get("WIDTH", 0)
+                    opt_width = common.get("ALLOW_WIDTH", 0)
+                    group_name = common.get("GROUP_NAME", "")
+                    moving_dir = common.get("MOVING", "BOTH")
+                    skew_start = common.get("SKEW_START", 0)
+                    skew_end = common.get("SKEW_END", 0)
+                    
+                    # Extract code-specific parameters based on the current active code
+                    if_val = 0
+                    span_val = 0
+                    
+                    # Use the first item to extract code-specific parameters
+                    first_item = items[0] if items else {}
+                    
+                    if current_code == "INDIA":
+                        if_val = first_item.get("IMPACT_FACTOR", 0)
+                        span_val = first_item.get("SPAN", 0)
+                    elif current_code == "CHINA":
+                        if_val = first_item.get("SCALE_FACTOR", 0)
+                        span_val = first_item.get("SPAN", 0)
+                    elif current_code in ["KOREA", "TAIWAN", "AASHTO STANDARD"]:
+                        if_val = first_item.get("FACT", 0)
+                    elif current_code == "AASHTO LRFD":
+                        if_val = first_item.get("CENT_F", 0)
+                    elif current_code == "EUROCODE":
+                        if_val = first_item.get("ECCEN_VERT_LOAD", 0)
+                    
+                    # Create the LineLane object with the current active code
+                    try:
+                        lane_obj = MovingLoad.LineLane(
+                            code=current_code,
+                            Lane_name=lane_name,
+                            Ecc=ecc,
+                            Wheel_space=wheel_space,
+                            elem_list=element_ids,
+                            IF=if_val,
+                            Span=span_val,
+                            id=int(lane_id),
+                            width=width,
+                            opt_width=opt_width,
+                            Group_Name=group_name,
+                            Moving_Direction=moving_dir,
+                            Skew_start=skew_start,
+                            Skew_end=skew_end
+                        )
+                        
+                    except Exception as e:
+                        print(f"Error creating lane {lane_id}: {e}")
+                        continue
  # =============================================  VEHICLE CLASS  =================================================================
     
 
@@ -950,7 +966,11 @@ class MovingLoad:
                     data["Assign"][str(v.id)] = vehicle_data
             
             return data
-
+        
+        @classmethod
+        def clear(cls):
+            cls.vehicles = []
+              
         @classmethod
         def sync(cls):
             """
@@ -1153,6 +1173,9 @@ class MovingLoad:
                 MidasAPI("DELETE", "/db/MVLDid")
             if "MVLDEU" in all_cases_in_model:
                 MidasAPI("DELETE", "/db/MVLDeu")
+        @classmethod
+        def clear(cls):
+            cls.cases = []
 
         @classmethod
         def sync(cls):
@@ -1476,4 +1499,392 @@ class MovingLoad:
 
 
 
-    #--------------------------------------Test---------------------------------------------
+        # COMMON WRAPPER FOR /DB/MVLD 
+        # ---------------------------------------------------------------------------------------------------------
+        
+        class GeneralCaseWrapper:
+            """
+            Internal base class to format standard General Load Cases (0), Permit Vehicles (1), 
+            and Auto Optimize Moving Loads (2) using nested lists for simplicity.
+            """
+            def __init__(self, code: str, name: str, case_type: int,
+                         sub_loads: list = None, comb_option: str = "COMB",
+                         lane_factor_type: int = 1, permit_vehicle_name: str = None, 
+                         ref_lane: str = None, permit_scale_factor: float = 1.0,
+                         optimize_lane_name: str = None, min_vehl_dist: float = None,
+                         min_num_vehicle: int = None, max_num_vehicle: int = None,
+                         optimize_items: list = None, asl_data: list = None,
+                         fatigue: bool = None, load_comb_type: int = None, load_model: int = None, 
+                         korea_lane_factors: dict = None, scale_factors: list = None,
+                         desc: str = "", id: int = None):
+                
+                if id is None:
+                    id = (max(c.id for c in MovingLoad.Case.cases) + 1) if MovingLoad.Case.cases else 1
+                    
+                params = {"LCNAME": name, "DESC": desc, "TYPE": case_type}
+                
+                # Map user-friendly comb_option values
+                mapped_comb_option = None
+                if comb_option is not None:
+                    comb_map = {
+                        "COMB": "COMBINED", "COMBINED": "COMBINED",
+                        "INDE": "INDEPENDENT", "INDEPENDENT": "INDEPENDENT"
+                    }
+                    mapped_comb_option = comb_map.get(str(comb_option).upper(), "COMBINED")
+
+                # Map user-friendly Vehicle Type values (VL/VC)
+                veh_type_map = {
+                    "VL": "VL", "LOAD": "VL", "VEHICLE LOAD": "VL",
+                    "VC": "VC", "CLASS": "VC", "VEHICLE CLASS": "VC"
+                }
+
+                # Format sub_loads from list representation to dict mappings
+                formatted_sub_loads = None
+                if sub_loads is not None:
+                    formatted_sub_loads = []
+                    for item in sub_loads:
+                        v_type = veh_type_map.get(str(item[0]).upper(), item[0])
+                        formatted_sub_loads.append({
+                            "VEHICLE_TYPE": v_type,
+                            "VEHICLE_NAME": item[1],
+                            "SCALE_FACTOR": item[2],
+                            "MIN_LOADED_LANE": item[3],
+                            "MAX_LOADED_LANE": item[4],
+                            "LANE_NAMES": item[5]
+                        })
+
+                # Format optimize_items from list to dict mappings
+                formatted_opt_items = None
+                if optimize_items is not None:
+                    formatted_opt_items = []
+                    for item in optimize_items:
+                        v_type = veh_type_map.get(str(item[0]).upper(), item[0])
+                        formatted_opt_items.append({
+                            "VEHICLE_TYPE": v_type,
+                            "VEHICLE_NAME": item[1],
+                            "SCALE_FACTOR": item[2]
+                        })
+
+                # Format ASL Data for Australia Heavy Load Platform
+                formatted_asl = None
+                if asl_data is not None:
+                    formatted_asl = {
+                        "MULTIPLE_FACTOR": asl_data[0],
+                        "VEHICLE_LOAD_NAME": asl_data[1],
+                        "VEHICLE_LOAD_NAME2": asl_data[2],
+                        "MIN_LOADED_LANE": asl_data[3],
+                        "MAX_LOADED_LANE": asl_data[4]
+                    }
+                    if len(asl_data) > 5 and asl_data[5] is not None:
+                        line_items = {
+                            "NA_LLAN_NAMES": asl_data[5],
+                            "STRAD_LLAN1_NAMES": [],
+                            "STRAD_LLAN2_NAMES": []
+                        }
+                        
+                        # Process STRAD lanes properly for lists within lists
+                        if len(asl_data) > 6 and asl_data[6] is not None:
+                            strad_data = asl_data[6]
+                            if isinstance(strad_data, list):
+                                
+                                if len(strad_data) > 0 and isinstance(strad_data[0], list):
+                                    line_items["STRAD_LLAN1_NAMES"] = strad_data[0]
+                                    if len(strad_data) > 1 and isinstance(strad_data[1], list):
+                                        line_items["STRAD_LLAN2_NAMES"] = strad_data[1]
+                                
+                                else:
+                                    line_items["STRAD_LLAN1_NAMES"] = strad_data
+
+                        formatted_asl["LINE_ITEMS"] = line_items
+
+                # Case 0: General Load
+                if case_type == 0:
+                    default_data = {}
+                    if scale_factors is not None: default_data["SCALE_FACTORS"] = scale_factors
+                    if mapped_comb_option is not None: default_data["COMB_OPTION"] = mapped_comb_option
+                    if lane_factor_type is not None: default_data["LANE_FACTOR_TYPE"] = lane_factor_type
+                    if formatted_sub_loads is not None: default_data["SUB_LOAD_DATAS"] = formatted_sub_loads
+                    if load_comb_type is not None: default_data["LOAD_COMB_TYPE"] = load_comb_type
+                    if fatigue is not None: default_data["FATIGUE"] = fatigue
+                    if load_model is not None: default_data["LOAD_MODEL"] = load_model
+                    
+                    if korea_lane_factors is not None:
+                        default_data.update(korea_lane_factors)
+                        
+                    params["DEFAULT"] = default_data
+                    if formatted_asl is not None: params["ASL"] = formatted_asl
+
+                # Case 1: Load Case for Permit Vehicle
+                elif case_type == 1:
+                    params["PERMIT_LOAD"] = {
+                        "VEHICLE_LOAD_NAME": permit_vehicle_name,
+                        "REF_LANE": ref_lane,
+                        "SCALE_FACTOR": permit_scale_factor
+                    }
+
+                # Case 2: Moving Load Optimization
+                elif case_type == 2:
+                    opt_data = {}
+                    if optimize_lane_name is not None: opt_data["LANE_NAME"] = optimize_lane_name
+                    if scale_factors is not None: opt_data["SCALE_FACTORS"] = scale_factors
+                    if min_vehl_dist is not None: opt_data["MIN_VEHL_DIST"] = min_vehl_dist
+                    if min_num_vehicle is not None: opt_data["MIN_NUM_VEHICLE"] = min_num_vehicle
+                    if max_num_vehicle is not None: opt_data["MAX_NUM_VEHICLE"] = max_num_vehicle
+                    if formatted_opt_items is not None: opt_data["OPTIMIZE_ITEMS"] = formatted_opt_items
+                    if load_model is not None: opt_data["LOAD_MODEL"] = load_model
+                    if fatigue is not None: opt_data["FATIGUE"] = fatigue
+                    
+                    params["AUTO_OPTIMIZE"] = opt_data
+                    if formatted_asl is not None: params["ASL"] = formatted_asl
+                    
+                MovingLoad.Case(code, id, params)
+
+        # ---------------------------------------------------------------------------------------------------------
+        # COUNTRY SPECIFIC
+        # ---------------------------------------------------------------------------------------------------------
+
+        class KSCELSD15(GeneralCaseWrapper):
+            def __init__(self, name: str, case_type: int,
+                         sub_loads: list = None, comb_option: str = "COMB",
+                         optimize_lane_name: str = None, min_vehl_dist: float = None,
+                         min_num_vehicle: int = None, max_num_vehicle: int = None, optimize_items: list = None, 
+                         scale_factors: list = None, desc: str = "", id: int = None):
+                """
+                Moving Load Case for KSCE-LSD15 code.
+                Supported Load Types (case_type):
+                - 0: General Load
+                - 2: Moving Load Optimization
+
+                [General Load - Type 0 Inputs]
+                - sub_loads: List of sub-load scenarios in the following list format:
+                  [ [vehicle_type("VL"/"LOAD" or "VC"/"CLASS"), vehicle_name, scale_factor, min_loaded_lane, max_loaded_lane, ["L1", "L2", ...]] ]
+                  Example: [ ["VL", "KL-510TRK", 1.0, 1, 3, ["L1", "L2", "L3"]] ]
+                - comb_option (str): "COMB" (Combined) or "INDE" (Independent). Default is "COMB".
+                - scale_factors: List of Multiple Presence Factors [L1, L2, L3, L4, L5, L6]. Default: [1, 0.9, 0.8, 0.7, 0.65, 0.65].
+
+                [Optimization Load - Type 2 Inputs]
+                - optimize_lane_name: Target lane name to optimize (e.g. "L1").
+                - min_vehl_dist: Minimum vehicle distance (Float).
+                - min_num_vehicle: Min number of vehicles allowed (Int).
+                - max_num_vehicle: Max number of vehicles allowed (Int).
+                - optimize_items: List of optimization items in format: [ [vehicle_type("VL"/"VC"), vehicle_name, scale_factor] ]
+                """
+                if scale_factors is None: scale_factors = [1, 0.9, 0.8, 0.7, 0.65, 0.65]
+                super().__init__("KSCE-LSD15", name, case_type, desc=desc, sub_loads=sub_loads, 
+                                 comb_option=comb_option, lane_factor_type=1,  
+                                 optimize_lane_name=optimize_lane_name, min_vehl_dist=min_vehl_dist, 
+                                 min_num_vehicle=min_num_vehicle, max_num_vehicle=max_num_vehicle, 
+                                 optimize_items=optimize_items, scale_factors=scale_factors, id=id)
+
+        class Korea(GeneralCaseWrapper):
+            def __init__(self, name: str,
+                         sub_loads: list = None, comb_option: str = "COMB", lane_factor_type: int = 1,
+                         korea_lane_factors: dict = None, scale_factors: list = None, desc: str = "", id: int = None):
+                """
+                Moving Load Case for Korea.
+                Supported Load Types: General Load (0) only.
+
+                [General Load - Type 0 Inputs]
+                - sub_loads: List format -> [ [vehicle_type("VL" or "VC"), vehicle_name, scale_factor, min_lane, max_lane, ["Lane1", "Lane2"]] ]
+                - comb_option (str): "COMB" (Combined) or "INDE" (Independent). Default is "COMB".
+                - lane_factor_type: 0 = Multi Lane Factor in KS Rail Load, 1 = Multiple Presence Factor.
+                - korea_lane_factors: Required dictionary if lane_factor_type = 0.
+                  Format: {"_2_LANE_FACTOR_1": 1, "_3_LANE_FACTOR_1": 1, ... etc.}
+                - scale_factors: Multiple presence factors. Default: [1, 1, 0.9, 0.75, 0.75, 0.75].
+                """
+                if scale_factors is None: scale_factors = [1, 1, 0.9, 0.75, 0.75, 0.75]
+                super().__init__("KOREA", name, 0, desc=desc, sub_loads=sub_loads, 
+                                 comb_option=comb_option, lane_factor_type=lane_factor_type,
+                                 korea_lane_factors=korea_lane_factors, scale_factors=scale_factors, id=id)
+
+        class AASHTOStandard(GeneralCaseWrapper):
+            def __init__(self, name: str, case_type: int,
+                         sub_loads: list = None, comb_option: str = "COMB",
+                         optimize_lane_name: str = None, min_vehl_dist: float = None,
+                         min_num_vehicle: int = None, max_num_vehicle: int = None, optimize_items: list = None,
+                         scale_factors: list = None, desc: str = "", id: int = None):
+                """
+                Moving Load Case for AASHTO Standard.
+                Supported Load Types (case_type): 0 (General Load), 2 (Moving Load Optimization).
+
+                [General Load - Type 0]
+                - sub_loads: List format -> [ ["VL", "UD_Train", 1.0, 1, 2, ["LL_01", "LL_02"]] ]
+                - comb_option (str): "COMB" (Combined) or "INDE" (Independent). Default is "COMB".
+                - scale_factors: Defaults to [1, 1, 0.9, 0.75, 0.75, 0.75].
+
+                [Optimization Load - Type 2]
+                - optimize_items: Format -> [ ["VL", "UD_Train", 1.0], ["VL", "UD_Truck/Lane", 1.0] ]
+                """
+                if scale_factors is None: scale_factors = [1, 1, 0.9, 0.75, 0.75, 0.75]
+                super().__init__("AASHTO STANDARD", name, case_type, desc=desc, sub_loads=sub_loads, 
+                                 comb_option=comb_option, lane_factor_type=1, 
+                                 optimize_lane_name=optimize_lane_name, min_vehl_dist=min_vehl_dist, 
+                                 min_num_vehicle=min_num_vehicle, max_num_vehicle=max_num_vehicle, 
+                                 optimize_items=optimize_items, scale_factors=scale_factors, id=id)
+
+        class AASHTOLRFD(GeneralCaseWrapper):
+            def __init__(self, name: str, case_type: int,
+                         sub_loads: list = None, comb_option: str = "COMB",
+                         permit_vehicle_name: str = None, ref_lane: str = None, permit_scale_factor: float = 1.0,
+                         optimize_lane_name: str = None, min_vehl_dist: float = None,
+                         min_num_vehicle: int = None, max_num_vehicle: int = None, optimize_items: list = None,
+                         scale_factors: list = None, desc: str = "", id: int = None):
+                """
+                Moving Load Case for AASHTO LRFD.
+                Supported Load Types: 0 (General), 1 (Permit Vehicle), 2 (Optimization).
+
+                [General Load - Type 0]
+                - sub_loads: List format -> [ ["VL", "MOHS20", 1.0, 1, 2, ["LL_01", "LL_02"]] ]
+                - comb_option (str): "COMB" (Combined) or "INDE" (Independent). Default is "COMB".
+                - scale_factors: Defaults to [1.2, 1, 0.85, 0.65, 0.65, 0.65].
+
+                [Permit Vehicle - Type 1]
+                - permit_vehicle_name: "UD_PermitTruck"
+                - ref_lane: "LL_01"
+                - permit_scale_factor: 1.0
+
+                [Optimization Load - Type 2]
+                - min_vehl_dist: Float distance.
+                - optimize_items: Format -> [ ["VL", "MOHS20", 1.0], ["VL", "UD_Legal", 1.0] ]
+                """
+                if scale_factors is None: scale_factors = [1.2, 1, 0.85, 0.65, 0.65, 0.65]
+                super().__init__("AASHTO LRFD", name, case_type, desc=desc, sub_loads=sub_loads, 
+                                 comb_option=comb_option, lane_factor_type=1,
+                                 permit_vehicle_name=permit_vehicle_name, ref_lane=ref_lane, permit_scale_factor=permit_scale_factor, 
+                                 optimize_lane_name=optimize_lane_name, min_vehl_dist=min_vehl_dist, 
+                                 min_num_vehicle=min_num_vehicle, max_num_vehicle=max_num_vehicle, 
+                                 optimize_items=optimize_items, scale_factors=scale_factors, id=id)
+
+        class PENNDOT(GeneralCaseWrapper):
+            def __init__(self, name: str, case_type: int,
+                         sub_loads: list = None, comb_option: str = "COMB",
+                         optimize_lane_name: str = None, min_vehl_dist: float = None,
+                         min_num_vehicle: int = None, max_num_vehicle: int = None, optimize_items: list = None,
+                         scale_factors: list = None, desc: str = "", id: int = None):
+                """
+                Moving Load Case for AASHTO LRFD(PENDOT).
+                Supported Load Types: 0 (General), 2 (Optimization).
+
+                [General Load - Type 0]
+                - sub_loads: List format -> [ ["VL", "UD_Train", 1.0, 1, 2, ["LL_01", "LL_02"]] ]
+                - comb_option (str): "COMB" (Combined) or "INDE" (Independent). Default is "COMB".
+                - scale_factors: Defaults to [1.2, 1, 0.85, 0.65, 0.65, 0.65].
+
+                [Optimization Load - Type 2]
+                - optimize_items: Format -> [ ["VL", "UD_Train", 1.0], ["VL", "UD_Truck/Lane", 1.0] ]
+                """
+                if scale_factors is None: scale_factors = [1.2, 1, 0.85, 0.65, 0.65, 0.65]
+                super().__init__("AASHTO LRFD(PENDOT)", name, case_type, desc=desc, sub_loads=sub_loads, 
+                                 comb_option=comb_option, lane_factor_type=1, 
+                                 optimize_lane_name=optimize_lane_name, min_vehl_dist=min_vehl_dist, 
+                                 min_num_vehicle=min_num_vehicle, max_num_vehicle=max_num_vehicle, 
+                                 optimize_items=optimize_items, scale_factors=scale_factors, id=id)
+
+        class Taiwan(GeneralCaseWrapper):
+            def __init__(self, name: str,
+                         sub_loads: list = None, comb_option: str = "COMB",
+                         scale_factors: list = None, desc: str = "", id: int = None):
+                """
+                Moving Load Case for TAIWAN.
+                Supported Load Types: 0 (General Load) only.
+
+                - sub_loads: List format -> [ ["VL", "TW_C-AML", 1.0, 1, 2, ["LL_01", "LL_02"]] ]
+                - comb_option (str): "COMB" (Combined) or "INDE" (Independent). Default is "COMB".
+                - scale_factors: Defaults to [1, 1, 0.9, 0.75, 0.75, 0.75].
+                """
+                if scale_factors is None: scale_factors = [1, 1, 0.9, 0.75, 0.75, 0.75]
+                super().__init__("TAIWAN", name, 0, desc=desc, sub_loads=sub_loads, 
+                                 comb_option=comb_option, lane_factor_type=1, scale_factors=scale_factors, id=id)
+
+        class Canada(GeneralCaseWrapper):
+            def __init__(self, name: str, case_type: int,
+                         sub_loads: list = None, comb_option: str = "COMB",
+                         permit_vehicle_name: str = None, ref_lane: str = None, permit_scale_factor: float = 1.0,
+                         optimize_lane_name: str = None, min_vehl_dist: float = None,
+                         min_num_vehicle: int = None, max_num_vehicle: int = None, optimize_items: list = None,
+                         scale_factors: list = None, desc: str = "", id: int = None):
+                """
+                Moving Load Case for CANADA.
+                Supported Load Types: 0 (General), 1 (Permit Vehicle), 2 (Optimization).
+
+                [General Load - Type 0]
+                - sub_loads: List format -> [ ["VL", "CA(Auto)_BCL-625Lane", 1.0, 1, 2, ["LL_01", "LL_02"]] ]
+                - comb_option (str): "COMB" (Combined) or "INDE" (Independent). Default is "COMB".
+                - scale_factors: Defaults to [1, 0.9, 0.8, 0.7, 0.6, 0.55].
+                
+                [Permit Vehicle - Type 1]
+                - permit_vehicle_name: Name of Permit Vehicle.
+                - ref_lane: Name of the reference lane.
+                
+                [Optimization Load - Type 2]
+                - optimize_items: Format -> [ ["VL", "CA(Auto)_BCL-625Lane", 1.0] ]
+                """
+                if scale_factors is None: scale_factors = [1, 0.9, 0.8, 0.7, 0.6, 0.55]
+                super().__init__("CANADA", name, case_type, desc=desc, sub_loads=sub_loads, 
+                                 comb_option=comb_option, lane_factor_type=1, 
+                                 permit_vehicle_name=permit_vehicle_name, ref_lane=ref_lane, permit_scale_factor=permit_scale_factor, 
+                                 optimize_lane_name=optimize_lane_name, min_vehl_dist=min_vehl_dist, 
+                                 min_num_vehicle=min_num_vehicle, max_num_vehicle=max_num_vehicle, 
+                                 optimize_items=optimize_items, scale_factors=scale_factors, id=id)
+
+        class Australia(GeneralCaseWrapper):
+            def __init__(self, name: str, case_type: int,
+                         sub_loads: list = None, comb_option: str = "COMB",
+                         load_comb_type: int = 1, load_model: int = 0, fatigue: bool = False,
+                         permit_vehicle_name: str = None, ref_lane: str = None, permit_scale_factor: float = 1.0,
+                         optimize_lane_name: str = None, min_vehl_dist: float = None,
+                         min_num_vehicle: int = None, max_num_vehicle: int = None, optimize_items: list = None,
+                         asl_data: list = None, scale_factors: list = None, desc: str = "", id: int = None):
+                """
+                Moving Load Case for AUSTRALIA.
+                Supported Load Types: 0 (General), 1 (Permit Vehicle), 2 (Optimization).
+
+                [General Load - Type 0 Parameters]
+                - sub_loads: Format -> [ ["VL", "AS_(PB)_Attached...", 1.0, 1, 2, ["LL_01", "LL_02"]] ]
+                - comb_option (str): "COMB" (Combined) or "INDE" (Independent). Default is "COMB".
+                - scale_factors: Defaults to [1, 0.8, 0.4, 0.4, 0.4, 0.4].
+                - load_comb_type (int): 0 for Ultimate Limit State, 1 for Serviceability Limit State.
+                - load_model (int): 0 (General), 1 (Fatigue), 2 (Heavy Load Platform), 3 (Rail Traffic Load).
+                - fatigue (bool): True if Fatigue Option applies.
+                
+                - asl_data (list): Provided when load_model = 2. Simplified format: 
+                  [multiple_factor, vehicle_name1, vehicle_name2, min_lane, max_lane, ["NA_Lanes"], [["Strad1_Lanes"], ["Strad2_Lanes"]]]
+                  Example 1 (With 2 Strad Lists): [0.5, "AS_HLP320", "NONE", 0, 1, ["L1", "L2"], [["L1"], ["L2"]]]
+                  Example 2 (With 1 Strad List):  [0.5, "AS_HLP320", "NONE", 0, 1, ["L1", "L2"], ["L1", "L3"]]
+                
+                [Permit Vehicle - Type 1] / [Optimization Load - Type 2] follow similar patterns.
+                """
+                if scale_factors is None: scale_factors = [1, 0.8, 0.4, 0.4, 0.4, 0.4]
+                super().__init__("AUSTRALIA", name, case_type, desc=desc, sub_loads=sub_loads, 
+                                 comb_option=comb_option, lane_factor_type=1, 
+                                 load_comb_type=load_comb_type, load_model=load_model, fatigue=fatigue,
+                                 permit_vehicle_name=permit_vehicle_name, ref_lane=ref_lane, permit_scale_factor=permit_scale_factor, 
+                                 optimize_lane_name=optimize_lane_name, min_vehl_dist=min_vehl_dist, 
+                                 min_num_vehicle=min_num_vehicle, max_num_vehicle=max_num_vehicle, 
+                                 optimize_items=optimize_items, asl_data=asl_data, scale_factors=scale_factors, id=id)
+
+        class Russia(GeneralCaseWrapper):
+            def __init__(self, name: str, case_type: int,
+                         sub_loads: list = None, comb_option: str = "COMB", load_comb_type: int = 0,
+                         optimize_lane_name: str = None, min_vehl_dist: float = None,
+                         min_num_vehicle: int = None, max_num_vehicle: int = None, optimize_items: list = None,
+                         desc: str = "", id: int = None):
+                """
+                Moving Load Case for RUSSIA.
+                Supported Load Types: 0 (General), 2 (Optimization).
+
+                [General Load - Type 0]
+                - sub_loads: Format -> [ ["VL", "AK-AA", 1.0, 1, 2, ["LL_01", "LL_02"]] ]
+                - comb_option (str): "COMB" (Combined) or "INDE" (Independent). Default is "COMB".
+                - load_comb_type (int): 0 for Limit State Group, 1 for Limit State Group I-Fatigue, 2 for Limit State Group II.
+                
+                [Optimization Load - Type 2]
+                - optimize_items: Format -> [ ["VL", "AK-AA", 1.0], ["VL", "AK-AA-F-UDL", 1.0] ]
+
+                """
+                scale_factors = [0, 0, 0, 0, 0, 0]
+                super().__init__("RUSSIA", name, case_type, desc=desc, sub_loads=sub_loads, 
+                                 comb_option=comb_option, lane_factor_type=None, load_comb_type=load_comb_type,
+                                 optimize_lane_name=optimize_lane_name, min_vehl_dist=min_vehl_dist, 
+                                 min_num_vehicle=min_num_vehicle, max_num_vehicle=max_num_vehicle, 
+                                 optimize_items=optimize_items, scale_factors=scale_factors, id=id)

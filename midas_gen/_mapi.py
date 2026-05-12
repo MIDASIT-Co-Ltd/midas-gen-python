@@ -216,7 +216,10 @@ class NX:
     onlyNode = False
     modelIDs = {} # Handles the fast MAX ID
     autoTaperGroup = False
+    dispWarning = True
     PRODUCT = 'GEN'
+    SOLVER = 'FES'
+    _MEC_VERSIONS = ['']
 
     units = {
         "FORCE": "KN",
@@ -441,10 +444,11 @@ def MidasAPI(method:_httpMethod, command:str, body:dict={})->dict:
             sys.exit(0)
 
     resp = response.json()
-    if 'error' in resp:
-        cmd = _functionMapping.get(command.lower(),command)
-        tqdm.write(f'    ⚠️      Error observed in {cmd}.   |   URL : {command}')
-        tqdm.write(f'           Error : {Fore.LIGHTMAGENTA_EX+resp["error"]["message"]+Style.RESET_ALL}\n')        
+    if NX.dispWarning:
+        if 'error' in resp:
+            cmd = _functionMapping.get(command.lower(),command)
+            tqdm.write(f'    ⚠️      Error observed in {cmd}.   |   URL : {command}')
+            tqdm.write(f'           Error : {Fore.LIGHTMAGENTA_EX+resp["error"]["message"]+Style.RESET_ALL}\n')        
                                 
 
 
@@ -468,12 +472,16 @@ def _setUNIT(unitJS):
 def _checkUSER():
     response =  MidasAPI('GET','/config/ver',{})
     if 'VER' in response:
-        resp = response['VER']
+        resp:dict = response['VER']
         _product = resp['NAME']
         if 'GEN' in _product:
             NX.PRODUCT = 'GEN'
         elif 'CIVIL' in _product:
             NX.PRODUCT = 'CIVIL'
+        
+        _version = resp.get('VERSION','9.6.0')
+        if _version in NX._MEC_VERSIONS:
+            NX.SOLVER == 'MEC'
 
         # print(f"{' '*15}Connected to {resp['NAME']}")
         # print(f"{' '*15}USER : {resp['USER']}          COMPANY : {resp['COMPANY']}")

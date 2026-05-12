@@ -5,6 +5,8 @@ from math import hypot,sqrt
 import numpy as np
 from typing import Literal
 
+_falloffType = Literal['Linear','Parabolic','Smooth']
+
 #Function to remove duplicate set of values from 2 lists
 # def unique_lists(li1, li2):
 #     if type (li1) == list and type (li2) == list:
@@ -142,7 +144,7 @@ class utils:
             **TYPE** -> Type of interpolating curve in X,Y
                     cubic , akima , makima , pchip
             **XZ Interpolation** -> Type of interpolating curve in X,Z
-                    cubic , akima , makima , pchip
+                    linear , slinear , cubic
             '''
             from scipy.interpolate import CubicSpline , Akima1DInterpolator , PchipInterpolator, interp1d
             _b3D = False
@@ -395,7 +397,7 @@ class utils:
 
             
     @staticmethod
-    def LineToPlate(nDiv:int = 10 , mSizeDiv:float = 0, bRigdLnk:bool=True , meshSize:float=0.5, elemList:list=None):
+    def LineToPlate(nDiv:int = 10 , mSizeDiv:float = 0, bRigdLnk:bool=True , meshSize:float=0.5, elemList:list=None, reverse=False):
         '''
         Converts selected/entered line element to Shell elements   
         **nDiv** - No. of Division along the length of span    
@@ -405,10 +407,11 @@ class utils:
         **bRigdLnk** - Whether to create Rigid links at the span ends  
         **meshSize** - Mesh size(in meter) of the plate elements   
         **elemList** - Element list which are to be converted . If None is passed, element are taken from selected elements in GEN NX  
+        **reverse** - Treats I, J end in opposite way , used for conversion of tapered sections   
 
         '''
         from ._utilsFunc._line2plate import SS_create
-        SS_create(nDiv , mSizeDiv , bRigdLnk , meshSize ,elemList)
+        SS_create(nDiv , mSizeDiv , bRigdLnk , meshSize ,elemList,reverse)
 
     @staticmethod
     def RC_Grillage(span_length = 20, width = 8, support:Literal['fix','pin']='fix', dia_no=2,start_loc = [0,0,0], girder_depth = 0, girder_width = 0, girder_no = 0, 
@@ -564,3 +567,39 @@ class utils:
         utils.__RC_Grillage_nSpan+=1
         #---------------------------------------------------------------------------------------
         # Model.create()
+
+    @staticmethod
+    def SoftSelection(location=(0,0,0),radius:float=5,falloffType:_falloffType='Linear'):
+        from ._node import Node,nodesInRadius
+        # LINEAR MAPPING --------------------------
+        def _linearWeight(dist,Radius):
+            return round(1-dist/Radius,3)
+
+        def _quadWeight(dist,Radius):
+            return round(1-(dist/Radius)**2,3)
+
+        def _smoothWeight(dist,Radius):
+            return round((1-(3*((dist/Radius)**2)-2*((abs(dist/Radius))**3))),3)
+        
+        if falloffType == 'Parabolic': falloffFn = _quadWeight
+        elif falloffType == 'Smooth': falloffFn = _smoothWeight
+        else: falloffFn = _linearWeight
+
+        #-------------------------------------------
+        _selectRadius = radius
+        _softSelect_data = {}
+
+        if not isinstance(location[0],(tuple,list,set)): location = [location]
+
+        for nID in location:
+            nodeData = nodesInRadius(nID,radius=_selectRadius,bDistOutput=True,includeSelf=True)
+            for nID,dist in nodeData:
+                if nID in _softSelect_data:
+                    _softSelect_data[nID] = min(_softSelect_data[nID],dist)
+                else:
+                    _softSelect_data[nID] = dist
+
+        for nID,dist in _softSelect_data.items():
+            _softSelect_data[nID] = falloffFn(dist,_selectRadius)
+
+        return list(_softSelect_data.items())

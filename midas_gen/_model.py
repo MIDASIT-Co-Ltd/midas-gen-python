@@ -112,11 +112,58 @@ class Model:
             "SET_MODE": "post"
         }
         }
+        _current_dispWarning = NX.dispWarning
+        NX.dispWarning = False
         resp = MidasAPI('POST','/view/CAPTURE',json_body)
+        NX.dispWarning = _current_dispWarning
 
         if 'message' in resp or 'error' in resp:
                 MidasAPI("POST","/doc/ANAL",{"Assign":{}})
         print(" 🔒   Model analysed. Switching to post-processing mode.")
+
+    # @staticmethod
+    # def merge_nodes(tolerance = 0):
+    #     """This functions removes duplicate nodes defined in the Node Class and modifies Element class accordingly.  \nSample: remove_duplicate()"""
+    #     a=[]
+    #     b=[]
+    #     node_json = Node.json()
+    #     elem_json = Element.json()
+    #     node_di = node_json["Assign"]
+    #     elem_di = elem_json["Assign"]
+    #     for i in list(node_di.keys()):
+    #         for j in list(node_di.keys()):
+    #             if list(node_di.keys()).index(j) > list(node_di.keys()).index(i):
+    #                 if (node_di[i]["X"] >= node_di[j]["X"] - tolerance and node_di[i]["X"] <= node_di[j]["X"] + tolerance):
+    #                     if (node_di[i]["Y"] >= node_di[j]["Y"] - tolerance and node_di[i]["Y"] <= node_di[j]["Y"] + tolerance):
+    #                         if (node_di[i]["Z"] >= node_di[j]["Z"] - tolerance and node_di[i]["Z"] <= node_di[j]["Z"] + tolerance):
+    #                             a.append(i)
+    #                             b.append(j)
+    #     for i in range(len(a)):
+    #         for j in range(len(b)):
+    #             if a[i] == b[j]: 
+    #                 a[i] = a[j]
+    #                 for k in elem_di.keys():
+    #                     for i in range(len(a)):
+    #                         if elem_di[k]['NODE'][0] == b[i]: elem_di[k]['NODE'][0] = a[i]
+    #                         if elem_di[k]['NODE'][1] == b[i]: elem_di[k]['NODE'][1] = a[i]
+    #                         try: 
+    #                             if elem_di[k]['NODE'][3] == b[i]: elem_di[k]['NODE'][3] = a[i]
+    #                         except: pass
+    #                         try: 
+    #                             if elem_di[k]['NODE'][4] == b[i]: elem_di[k]['NODE'][4] = a[i]
+    #                         except: pass
+
+    #     if len(b)>0:
+    #         for i in range(len(b)):
+    #             if b[i] in node_di: del node_di[b[i]]
+    #         Node.nodes = []
+    #         Node.ids = []
+    #         for i in node_di.keys():
+    #             Node(node_di[i]['X'], node_di[i]['Y'], node_di[i]['Z'], i)
+    #         Element.elements = []
+    #         Element.ids = []
+    #         for i in elem_di.keys():
+    #             Element(elem_di[i], i)
 
     
     @staticmethod
@@ -250,6 +297,8 @@ class Model:
         Tendon.clear()
         Section.TaperedGroup.clear()
         LoadCombination.clear()
+        CS.clear()
+        MovingLoad.clear()
         
 
     @staticmethod

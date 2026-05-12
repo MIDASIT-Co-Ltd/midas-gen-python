@@ -54,7 +54,7 @@ def _JSToDF_ResTable(js_json,excelLoc,sheetName,cellLoc="A1"):
 
     res_type_df = res_df.with_columns([
         pl.selectors.matches("Index|Elem|Node").cast(pl.Int64),
-        pl.selectors.matches("Shear|Torsion|Moment|F|M|D|R").cast(pl.Float64),
+        pl.selectors.matches("Axial|Shear|Torsion|Moment|F|M|D|R").cast(pl.Float64),
         pl.selectors.matches("Load|Part").cast(pl.String),
     ])
 
@@ -974,7 +974,7 @@ class Result :
     @staticmethod
     def IMAGE(ResultGraphic:ResultGraphic,location:str='',image_size:tuple = None,CS_StageName:str='',CS_StepIndex=2,_bOutputImage=True):
         ''' 
-        Capture Result Graphic in CIVIL NX   
+        Capture Result Graphic in GEN NX   
             Result Graphic - ResultGraphic JSON (ResultGraphic.BeamDiagram())
             Location - image location
             Image height and width
