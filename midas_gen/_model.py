@@ -473,25 +473,6 @@ class Model:
         node_connectivity = dict(node_connectivity)
         return node_connectivity
 
-    @staticmethod
-    def visualise():
-        if NX.visualiser:
-            try:
-                from ._visualise import displayWindow
-                displayWindow()
-            except:
-                pass
-
-    @staticmethod
-    def snap():
-        if NX.visualiser:
-            try:
-                from ._visualise import take_snapshot
-                take_snapshot()
-            except:
-                pass
-
-
 
 
 
