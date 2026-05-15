@@ -347,11 +347,11 @@ class Model:
 
     @staticmethod
     def save(location=""):
-        """Saves the model\nFor the first save, provide location - \nModel.save("D:\\model2.mcb")"""
+        """Saves the model\nFor the first save, provide location - \nModel.save("D:\\model2.mgb")"""
         if location=="":
             MidasAPI("POST","/doc/SAVE",{"Argument":{}})
         else:
-            if location.endswith('.mcb') or location.endswith('.mcbz'):
+            if location.endswith('.mgb') or location.endswith('.mgbx'):
                 MidasAPI("POST","/doc/SAVEAS",{"Argument":str(location)})#Dumy location
             else:
                 print('⚠️  File extension is missing')
@@ -359,16 +359,16 @@ class Model:
     @staticmethod
     def saveAs(location=""):
         """Saves the model at location provided   
-         Model.saveAs("D:\\model2.mcb")"""
-        if location.endswith('.mcb') or location.endswith('.mcbz'):
+         Model.saveAs("D:\\model2.mgb")"""
+        if location.endswith('.mgb') or location.endswith('.mgbx'):
             MidasAPI("POST","/doc/SAVEAS",{"Argument":str(location)})
         else:
             print('⚠️  File extension is missing')
     
     @staticmethod
     def open(location=""):
-        """Open GEN NX model file \n Model.open("D:\\model.mcb")"""
-        if location.endswith('.mcb') or location.endswith('.mcbz'):
+        """Open GEN NX model file \n Model.open("D:\\model.mgb")"""
+        if location.endswith('.mgb') or location.endswith('.mgbx'):
             MidasAPI("POST","/doc/OPEN",{"Argument":str(location)})
         else:
             print('⚠️  File extension is missing')
@@ -387,7 +387,7 @@ class Model:
     @staticmethod
     def saveStageAs(stageName="",filePath=""):
         """Save Construction Stage as separate model"""
-        if filePath.endswith('.mcb') or filePath.endswith('.mcbz'):
+        if filePath.endswith('.mgb') or filePath.endswith('.mgbx'):
             MidasAPI("POST","/doc/STAGAS",{"Argument":{"EXPORT_PATH":str(filePath), "STAGE_STEP":str(stageName)}})
         else:
             print('⚠️  File extension is missing')
