@@ -24,7 +24,8 @@ _FidelityType = Literal["Exact", "5 Points"]
 _FillType = Literal["No", "Line", "Solid"]
 _OutputLocType = Literal["Max", "MinMax", "All", "I", "J"]
 _TRUSS_OutputLocType = Literal["I", "J", "Max", "All"]
-_BEAM_OutputLocType = Literal["Max", "All"]
+_BeamStress_OutputLocType = Literal["Max", "All"]
+_BeamForce_OutputLocType = Literal["Min/Max", "All","Abs Max"]
 _WoodArmerMoment_POS = Literal["Top","Bottom"]
 _WoodArmerMoment_DIR = Literal["Dir.1","Dir.2"]
 
@@ -340,7 +341,7 @@ class ResultGraphic:
     @staticmethod
     def BeamDiagram(lcase_type: _LCaseType, lcase_name: str, lcase_minmax: _MinMaxType = "Max",
                     part: _PartType = "total", component: _CompBeamForce = "My",
-                    fidelity: _FidelityType = "Exact", fill: _FillType = "Solid", scale: float = 1.0) -> dict:
+                    fidelity: _FidelityType = "Exact", fill: _FillType = "Solid", scale: float = 1.0,bMaxMin_diagram:bool = False,outputLoc:_BeamForce_OutputLocType = 'All') -> dict:
         '''
         Generates JSON for Beam Diagrams Result Graphic.
         
@@ -352,7 +353,9 @@ class ResultGraphic:
             component (str): Component Name ("Fx", "Fy", "Fz", "Mx", "My", "Mz"). Defaults to "My".
             fidelity (str): Fidelity of the diagram ("Exact", "5 Points", ...). Defaults to "Exact".
             fill (str): Fill of Diagram ("No", "Line", "Solid"). Defaults to "Solid".
-            scale (float): Scale of Diagram. Defaults to 1.0.
+            scale (float): Scale of Diagram. Defaults to 1.0.     
+            bMaxMin_diagram (bool) : Toggles Max/Min Diagram.     
+            output_loc (str): Output Section Location ("All", "Abs Max" , "Min/Max). Defaults to "All".      
 
         '''
         json_body = {
@@ -362,7 +365,7 @@ class ResultGraphic:
                     "NAME":lcase_name,
                     "MINMAX" : lcase_minmax,
                     "STEP_INDEX": 2,
-                    "OPT_MAXMIN_DIAGRAM": False
+                    "OPT_MAXMIN_DIAGRAM": bMaxMin_diagram
                 },
                 "COMPONENTS":{
                     "PART":part,
@@ -385,7 +388,7 @@ class ResultGraphic:
                     "OPT_CUR_STEP_FORCE": False
                 },
                 "OUTPUT_SECT_LOCATION": {
-					"OPT_MAX_MINMAX_ALL": "absmax"
+					"OPT_MAX_MINMAX_ALL": outputLoc
         	    }
             }
         return json_body
@@ -832,7 +835,7 @@ class ResultGraphic:
 
     @staticmethod
     def BeamStresses(lcase_type: _LCaseType, lcase_name: str, part: _PartType = "total",
-                     component: _CompBeamStress = "Combined", comp_sub: str = "Maximum", output_loc: _BEAM_OutputLocType = "Max",
+                     component: _CompBeamStress = "Combined", comp_sub: str = "Maximum", output_loc: _BeamStress_OutputLocType = "Max",
                      comp_7th_dof: str = "Combined(Ssy)") -> dict:
         '''
         Generates JSON for Beam Stresses Result Graphic.
